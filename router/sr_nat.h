@@ -40,13 +40,17 @@ struct sr_nat_mapping {
 struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
-  uint32_t ip_int; /* internal ip addr */
-  uint32_t ip_ext; /* external ip addr */
-  uint16_t aux_int; /* internal port or icmp id */
-  uint16_t aux_ext; /* external port or icmp id */
 
-  struct sr_if *int_list;
-  struct sr_if *ext_list;
+  /* timeout values */
+  uint16_t icmp_to;
+  uint16_t tcp_establish_to;
+  uint16_t tcp_transitory_to;
+
+  uint16_t icmp_id;
+  uint16_t tcp_id;
+
+  struct sr_if *int_list;  /* internal interfaces */
+  struct sr_if *ext_list;  /* external interfaces */
 
   /* threading */
   pthread_mutex_t lock;

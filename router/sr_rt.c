@@ -185,30 +185,32 @@ void sr_print_routing_entry(struct sr_rt* entry)
  *
  *---------------------------------------------------------------------*/
 
-struct sr_rt* sr_find_routing_entry_int(struct sr_instance* sr, uint32_t ip)
-{
+struct sr_rt* sr_find_routing_entry_int(struct sr_instance* sr, uint32_t ip) {
   unsigned long best_match = 0;
   struct sr_rt* rt = NULL;
   struct sr_rt* rt_walker = 0;
 
-  if(sr->routing_table == 0)
-  {
+  if(sr->routing_table == 0) {
     printf(" *warning* Routing table empty \n");
     return NULL;
   }
-
   rt_walker = sr->routing_table;
 
-  while(rt_walker)
-  {
-    uint32_t rt_ip = (rt_walker->mask.s_addr)&(rt_walker->dest.s_addr);
-    uint32_t match = ip&rt_ip;
-    if (match > best_match && match == rt_ip){
-        best_match = match;
+  while(rt_walker) {
+    uint32_t rt_ip = (uint32_t)(rt_walker->dest.s_addr);
+    uint32_t rt_mask = (uint32_t)(rt_walker->mask.s_addr);
+    uint32_t rt_entry = (rt_ip&rt_msk);
+    uint32_t ip_masked = (ip&rt_msk);
+    if((ip_masked^rt_entry) == 0){
+      if (rt_mask+1 == 0) {  /* found match! */
+        return rt_walker;
+      }
+      else if (rt_msk > best_match) {  /* found partial match! */
+        best_match = rt_mask;
         rt = rt_walker;
+      }
     }
-    rt_walker = rt_walker->next; 
+    rt_walker = rt_walker->next;
   }
   return rt;
 } /* -- sr_find_routing_entry -- */
-

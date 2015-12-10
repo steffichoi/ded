@@ -200,24 +200,14 @@ void sr_print_if(struct sr_if* iface)
  * checks if ip addr is in interface
  *
  *---------------------------------------------------------------------*/
-struct sr_if *sr_get_interface_from_ip(struct sr_instance* sr, uint32_t addr)
-{
-    struct sr_if* if_walker = 0;
-
-    if(sr->if_list == 0)
-    {
-        return NULL;
+struct sr_if *sr_get_interface_from_ip(struct sr_instance* sr, uint32_t addr) {
+  struct sr_if* if_walker = 0;
+  if_walker = sr->if_list;
+  while(if_walker) {
+    if (ntohl(if_walker->ip) == addr){
+      return if_walker;
     }
-
-    if_walker = sr->if_list;
-    while(if_walker)
-    {
-        if (ntohl(if_walker->ip) == addr){
-            return if_walker;
-        }
-        if_walker = if_walker->next; 
-    }
-
-    return NULL;
-
+    if_walker = if_walker->next; 
+  }
+  return NULL;
 } /* -- sr_get_iface -- */

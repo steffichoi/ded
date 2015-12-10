@@ -183,28 +183,31 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
   }
 }
 
-uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int size){
-  uint8_t * ret = NULL;
-  if (type == 3 || type == 11){
-    uint16_t num = 28;
-    if (size < num) {
-      num = size;
+uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int len){
+  sr_icmp_t3_hdr_t* icmpHeader = (sr_icmp_t3_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+  
+  if(type !=0 || code != 0){
+    int data_size;
+    if (len < sizeof(sr_ethernet_hdr_t) + ICMP_DATA_SIZE){
+      data_size = len-SIZE_ETH;
+    } 
+    else {
+      data_size = ICMP_DATA_SIZE;
     }
-    ret = malloc(sizeof(sr_icmp_t3_hdr_t));
-    memset(ret,0,sizeof(sr_icmp_t3_hdr_t));
-    sr_icmp_t3_hdr_t *hdr = (sr_icmp_t3_hdr_t*) ret;
-    hdr->icmp_type = type;
-    hdr->icmp_code = code;
-    hdr->icmp_sum = 0;  
-    memcpy(hdr->data,packet,num);
-    hdr->icmp_sum = htons(cksum(ret,num+8));
-  } else {
-    fprintf(stderr, "ICMP for type %d is not implemented \n", type);
+    memcpy(icmpHeader->data, packet + sizeof(sr_ethernet_hdr_t), data_size);
+    icmpHeader->unused = 0;
+    icmpHeader->next_mtu = 0;
+    len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
   }
-  return ret;
+
+  icmpHeader->icmp_type = type;
+  icmpHeader->icmp_code = code;
+  icmpHeader->icmp_sum = 0;
+  icmpHeader->icmp_sum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+  return icmpHeader;
 }
 
-void set_addr(sr_ethernet_hdr_t* ethHeader, uint8_t *src_addr, uint8_t *dst_addr) {
+void set_eth_addr(sr_ethernet_hdr_t* ethHeader, uint8_t *src_addr, uint8_t *dst_addr) {
   memcpy(ethHeader->ether_dhost, dst_addr,6);
   memcpy(ethHeader->ether_shost, src_addr,6);
 }

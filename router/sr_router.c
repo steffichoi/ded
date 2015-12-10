@@ -22,6 +22,7 @@
 #include "sr_protocol.h"
 #include "sr_arpcache.h"
 #include "sr_nat.h"
+#include "sr_utils.h"
 
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
@@ -110,8 +111,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-  uint8_t *icmpPacket;
-  struct sr_if *iface= sr_get_interface_from_ip(sr,ip_header->ip_dst);
+  struct sr_if *next_iface= sr_get_interface_from_ip(sr,ip_header->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
   ip_header->ip_sum = 0;
@@ -121,7 +121,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   if (cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
   } 
-  else if (iface){
+  else if (next_iface){
     if(ip_header->ip_p == 6){ /*TCP*/
       sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
@@ -130,7 +130,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     } 
     else if (ip_header->ip_p==1 && ip_header->ip_tos==0){ /*ICMP PING*/
       sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-      incm_cksum = icmp_header->icmp_sum;
+      incm_cksum = icmpHeader->icmp_sum;
       icmpHeader->icmp_sum = 0;
       icmpHeader->icmp_sum = incm_cksum;
       cksum = cksum((uint8_t*)icmpHeader, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
@@ -229,9 +229,9 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   if (entry) {
     iface = sr_get_interface(sr, rt->interface);
     set_addr(sr_ethernet_hdr_t* ethHeader, iface->addr, entry->mac)
-    ip_header->ip_ttl = ip_header->ip_ttl - 1;
-    ip_header->ip_sum = 0;
-    ip_header->ip_sum = cksum((uint8_t *)ip_header, sizeof(sr_ip_hdr_t));
+    ipHeader->ip_ttl = ipHeader->ip_ttl - 1;
+    ipHeader->ip_sum = 0;
+    ipHeader->ip_sum = cksum((uint8_t *)ipHeader, sizeof(sr_ip_hdr_t));
     sr_send_packet(sr, packet, len, rt->interface);
     free(entry);
   } 

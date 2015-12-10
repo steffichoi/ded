@@ -101,14 +101,14 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 /* Get the mapping associated with given internal (ip, port) pair.
    You must free the returned structure if it is not NULL. */
 struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
-  uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ) {
+  uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ){
 
   pthread_mutex_lock(&(nat->lock));
 
   /* handle lookup here, malloc and assign to copy. */
   struct sr_nat_mapping *copy = NULL;
   struct sr_nat_mapping* curr_map = nat->mappings;
-  while(curr_map){
+  while(curr_map) {
     if((curr_map->ip_int == ip_int) && (curr_map->aux_int == aux_int) && (curr_map->type == type){
       copy = malloc(sizeof(struct sr_nat_mapping));
       memcpy(copy, curr_map, sizeof(struct sr_nat_mapping));
@@ -136,10 +136,6 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
   mapping->ip_int = ip_int;
   mapping->ip_ext = nat->ext_list->ip;
   mapping->aux_int = aux_int;
-  mapping->aux_ext = nat->aux_ext->ip;
-  mapping->last_updated = time(NULL);
-  mapping->conns = NULL;
-  mapping->next = nat->mappings;
 
   if (type == nat_mapping_icmp) {
     mapping->aux_ext = nat->icmp_id;
@@ -152,6 +148,10 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
       nat->tcp_id = 1024;
     }
   }
+  mapping->last_updated = time(NULL);
+  mapping->conns = NULL;
+  mapping->next = nat->mappings;
+
   nat->mappings = mapping;  
   memcpy(copy, mapping, sizeof(struct sr_nat_mapping));
 

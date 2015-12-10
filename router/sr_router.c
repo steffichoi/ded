@@ -122,13 +122,13 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       fprintf(stderr,"Bad checksum\n");
   } 
   else if (next_iface){
-    if(ip_header->ip_p == 6){ /*TCP*/
+    if(ipHeader->ip_p == 6){ /*TCP*/
       sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
-    else if (ip_header->ip_p==17){ /*UDP*/
+    else if (ipHeader->ip_p==17){ /*UDP*/
       sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
-    else if (ip_header->ip_p==1 && ip_header->ip_tos==0){ /*ICMP PING*/
+    else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
       sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
       incm_cksum = icmpHeader->icmp_sum;
       icmpHeader->icmp_sum = 0;
@@ -228,7 +228,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
     
   if (entry) {
     iface = sr_get_interface(sr, rt->interface);
-    set_eth_addr(ethHeader, iface->addr, entry->mac)
+    set_eth_addr(ethHeader, iface->addr, entry->mac);
     ipHeader->ip_ttl = ipHeader->ip_ttl - 1;
     ipHeader->ip_sum = 0;
     ipHeader->ip_sum = cksum((uint8_t *)ipHeader, sizeof(sr_ip_hdr_t));
@@ -276,7 +276,7 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
     ipHeader->ip_src = ip_src;
     ipHeader->ip_sum = cksum((uint8_t*)(ip_header),sizeof(sr_ip_hdr_t));
 
-    sendIP(sr, packet, len, rt);
+    sr_sendIP(sr, packet, len, rt);
   }
 }
 

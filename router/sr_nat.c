@@ -109,7 +109,7 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   struct sr_nat_mapping *copy = NULL;
   struct sr_nat_mapping* curr_map = nat->mappings;
   while(curr_map) {
-    if((curr_map->ip_int == ip_int) && (curr_map->aux_int == aux_int) && (curr_map->type == type){
+    if((curr_map->ip_int == ip_int) && (curr_map->aux_int == aux_int) && (curr_map->type == type)) {
       copy = malloc(sizeof(struct sr_nat_mapping));
       memcpy(copy, curr_map, sizeof(struct sr_nat_mapping));
     }

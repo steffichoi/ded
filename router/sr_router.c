@@ -111,14 +111,14 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t));
-  struct sr_if *next_iface= sr_get_interface_from_ip(sr,ip_header->ip_dst);
+  struct sr_if *next_iface= sr_get_interface_from_ip(sr, ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
-  ip_header->ip_sum = 0;
+  ipHeader->ip_sum = 0;
   ipHeader->ip_sum = incm_cksum;
   
-  uint16_t cksum = cksum((uint8_t*)ipHeader, sizeof(sr_ip_hdr_t));
-  if (cksum != incm_cksum){
+  uint16_t find_cksum = cksum((uint8_t*)ipHeader, sizeof(sr_ip_hdr_t));
+  if (find_cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
   } 
   else if (next_iface){
@@ -133,7 +133,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       incm_cksum = icmpHeader->icmp_sum;
       icmpHeader->icmp_sum = 0;
       icmpHeader->icmp_sum = incm_cksum;
-      cksum = cksum((uint8_t*)icmpHeader, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+      find_cksum = cksum((uint8_t*)icmpHeader, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 
       uint8_t type = icmpHeader->icmp_type;
       uint8_t code = icmpHeader->icmp_code;
@@ -179,7 +179,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
           memcpy(arpHeader->ar_sha, iface->addr,6);
 
           /*swapping outgoing and incoming addr*/
-          set_addr(ethHeader, iface->addr, ethHeader->ether_shost);
+          set_eth_addr(ethHeader, iface->addr, ethHeader->ether_shost);
           sr_send_packet(sr,(uint8_t*)ethHeader,len,iface->name);
         }
     }
@@ -228,7 +228,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
     
   if (entry) {
     iface = sr_get_interface(sr, rt->interface);
-    set_addr(sr_ethernet_hdr_t* ethHeader, iface->addr, entry->mac)
+    set_eth_addr(ethHeader, iface->addr, entry->mac)
     ipHeader->ip_ttl = ipHeader->ip_ttl - 1;
     ipHeader->ip_sum = 0;
     ipHeader->ip_sum = cksum((uint8_t *)ipHeader, sizeof(sr_ip_hdr_t));
@@ -239,7 +239,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
     memcpy(ethHeader->ether_shost, iface->addr, 6);
     struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
                                                  len, rt->interface);
-    sr_handle_arpreq(sr,req);
+    handle_arpreq(sr,req);
   }
   pthread_mutex_unlock(&(sr->cache.lock));
 }
@@ -251,15 +251,16 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
   sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
   sr_ip_hdr_t* ipHeader = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
   sr_icmp_t3_hdr_t* icmpHeader = (sr_icmp_t3_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-  struct sr_rt* rt = sr_find_routing_entry_int(sr, ip_header->ip_src);
+  struct sr_rt* rt = sr_find_routing_entry_int(sr, ipHeader->ip_src);
 
   if(rt){
     struct sr_if* iface = sr_get_interface(sr, rt->interface);
+    uint8_t *icmpPacket = createICMP(type, code, packet, len);
 
-    icmpHeader = createICMP(type, code, packet, len);
-    memcpy(eth_header->ether_shost,iface->addr,6);
+    memcpy(icmpHeader, icmpPacket, sizeof(icmpPacket));
+    memcpy(ethHeader->ether_shost,iface->addr,6);
 
-    eth_header->ether_type = htons(0x0800);
+    ethHeader->ether_type = htons(0x0800);
     if (ip_src == 0){
       ip_src = iface->ip;
     }

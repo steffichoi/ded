@@ -189,7 +189,7 @@ uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int le
   if(type !=0 || code != 0){
     int data_size;
     if (len < sizeof(sr_ethernet_hdr_t) + ICMP_DATA_SIZE){
-      data_size = len-SIZE_ETH;
+      data_size = len - sizeof(sr_ethernet_hdr_t);
     } 
     else {
       data_size = ICMP_DATA_SIZE;

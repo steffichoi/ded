@@ -241,15 +241,15 @@ void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
   pthread_mutex_unlock(&(nat->lock));
 }
 
-void sr_nat_delete_mapping(struct sr_nat *nat,
-  struct sr_nat_mapping *del_map,
+void sr_nat_delete_mapping(struct sr_nat *nat,bstruct sr_nat_mapping *del_map,
   struct sr_nat_mapping *prev){
 
   assert(del_map);
 
   if(prev == NULL){
     nat->mappings = del_map->next;
-  }else{
+  }
+  else{
     prev->next = del_map->next;
   }
   free(del_map);

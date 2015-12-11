@@ -134,7 +134,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       icmpHeader->icmp_sum = 0;
       icmpHeader->icmp_sum = incm_cksum;
       find_cksum = cksum((uint8_t*)icmpHeader, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-
+      icmpHeader->icmp_sum = incm_cksum;
       uint8_t type = icmpHeader->icmp_type;
       uint8_t code = icmpHeader->icmp_code;
       if (type == 8 && code == 0) {
@@ -227,6 +227,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   sr_ip_hdr_t* ipHeader = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
     
   if (entry) {
+    fprintf(stderr,"cache hit\n");
     iface = sr_get_interface(sr, rt->interface);
     set_eth_addr(ethHeader, iface->addr, entry->mac);
     ipHeader->ip_ttl = ipHeader->ip_ttl - 1;

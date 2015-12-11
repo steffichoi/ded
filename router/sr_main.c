@@ -66,11 +66,14 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
-    int nat_usage = 0;
+    unsigned short nat_usage = 0;
+    unsigned int icmp_to = 60;
+    unsigned int tcp_establish_to = 7440;
+    unsigned int tcp_transitory_to = 300;
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:n:l:T:")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:n:")) != EOF)
     {
         switch (c)
         {
@@ -105,6 +108,15 @@ int main(int argc, char **argv)
             case 'n':
                 printf("nat here\n");
                 nat_usage = 1;
+                break;
+            case 'I':
+                icmp_to = atoi((char *) optarg);
+                break;
+            case 'E':
+                tcp_establish_to = atoi((char *) optarg);
+                break;
+            case 'R':
+                tcp_transitory_to = atoi((char *) optarg);
                 break;
         } /* switch */
     } /* -- while -- */

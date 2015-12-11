@@ -26,6 +26,20 @@ typedef enum {
   /* nat_mapping_udp, */
 } sr_nat_mapping_type;
 
+typedef enum {
+  CLOSE_WAIT, /*waiting for remote host to close session request*/
+  CLOSED, /*DEFAULT, no session*/
+  CLOSING,/*waiting for remote host to close session ACK*/
+  ESTABLISHED,/*session is open*/
+  FIN_WAIT_1,
+  FIN_WAIT_2,
+  LAST_ACK,
+  LISTEN,/*waiting for connection request*/
+  SYN_RECEIVED,
+  SYN_SENT,
+  TIME_WAIT
+}STATES; /*TCP state machine*/
+
 struct sr_nat_connection {
   /* add TCP connection state data members here */
   uint32_t ip_dst;
@@ -78,20 +92,6 @@ struct sr_nat {
   pthread_t thread;
 };
 
-typedef enum {
-  CLOSE_WAIT, /*waiting for remote host to close session request*/
-  CLOSED, /*DEFAULT, no session*/
-  CLOSING,/*waiting for remote host to close session ACK*/
-  ESTABLISHED,/*session is open*/
-  FIN_WAIT_1,
-  FIN_WAIT_2,
-  LAST_ACK,
-  LISTEN,/*waiting for connection request*/
-  SYN_RECEIVED,
-  SYN_SENT,
-  TIME_WAIT
-}STATES; /*TCP state machine*/
-
 
 int   sr_nat_init(struct sr_nat *nat);     /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
@@ -125,7 +125,7 @@ struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, struct sr_nat_m
   uint32_t ip_src, uint16_t port_src, uint32_t ip_dst, uint16_t port_dst);
 
 void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
-  struct sr_nat_connection *con_copy));
+  struct sr_nat_connection *con_copy);
 
 int sr_nat_update_seq_no(struct sr_nat *nat, struct sr_nat_mapping *copy, 
   struct sr_nat_connection *con_copy, uint16_t seq_no);

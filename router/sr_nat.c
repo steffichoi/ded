@@ -242,17 +242,17 @@ void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
 }
 
 void sr_nat_delete_mapping(struct sr_nat *nat,
-    struct sr_nat_mapping *del_map,
-    struct sr_nat_mapping *prev){
+  struct sr_nat_mapping *del_map,
+  struct sr_nat_mapping *prev){
 
-    assert(del_map);
+  assert(del_map);
 
-    if(prev == NULL){
-      nat->mappings = del_map->next;
-    }else{
-      prev->next = del_map->next;
-    }
-    free(del_map);
+  if(prev == NULL){
+    nat->mappings = del_map->next;
+  }else{
+    prev->next = del_map->next;
+  }
+  free(del_map);
 }
 
 /* tcp functions! */

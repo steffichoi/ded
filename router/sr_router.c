@@ -93,7 +93,7 @@ void sr_handlepacket(struct sr_instance* sr,
       sr_handleARPpacket(sr, ether_packet, len, iface);
     }else if(package_type == ethertype_ip){
       /* IP protocol */
-      sr_handleIPpacket(sr, ether_packet,len, interface);
+      sr_handleIPpacket(sr, ether_packet,len, interface, iface);
     }else{
       /* drop package */
        printf("bad protocol! BOO! \n");

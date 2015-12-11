@@ -434,8 +434,160 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
   pthread_mutex_unlock(&(nat->lock));
   return 0;
 }
+int sr_nat_handle_internal_conn(struct sr_nat *nat,
+  struct sr_nat_mapping *copy,  
+  uint8_t* packet /* borrowed */,
+  unsigned int len) {
 
+  assert(nat);
+  assert(copy);
+  assert(packet);
 
+  sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
+  assert(ipHeader->ip_p == ip_protocol_tcp);
+  sr_tcp_hdr_t *tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
 
+  pthread_mutex_lock(&(nat->lock));
 
+  /* handle lookup here, malloc and assign to copy. */
+  struct sr_nat_mapping *mapping = nat->mappings;
+  for(;mapping != NULL; mapping = mapping->next){
+    if (mapping->ip_int == copy->ip_int
+      && mapping->aux_int == copy->aux_int)
+      break;
+  }
+  assert(mapping);
 
+  uint32_t ip_dst = ntohs(ipHeader->ip_dst);
+  uint16_t port_dst = ntohs(tcpHeader->tcp_dst_p);
+
+  Debug("Connection lookup\n");
+  struct sr_nat_connection *conn = mapping->conns;
+  struct sr_nat_connection *prev_conn = NULL;
+  for(;conn != NULL; conn = conn->next){
+    if (conn->ip_dst == ip_dst && conn->port_dst == port_dst)
+      break;
+    prev_conn = conn;
+  }
+  /*Connection doesn't exist*/
+  if (conn == NULL){
+    if(tcpHeader->tcp_flags != tcp_flag_syn){
+      Debug("New connection, but this isn't a syn packet\n");
+      pthread_mutex_unlock(&(nat->lock));
+      return 1;
+    }
+    Debug("No current connection, making new one\n");
+    conn = malloc(sizeof(struct sr_nat_connection));
+    conn->ip_dst=ip_dst;
+    conn->port_dst=port_dst;
+    conn->state=nat_conn_syn;
+    conn->last_state = true;
+    conn->packet = NULL;
+    conn->next = NULL;
+
+    /*Adds to connections*/
+    struct sr_nat_connection *conn_list = mapping->conns;
+    if (conn_list != NULL){
+      while(conn_list->next != NULL)
+        conn_list = conn_list->next;
+
+      conn_list->next = conn;
+    }
+    else{
+      mapping->conns = conn;
+    }
+  }
+
+  /*Do state operations on the connection*/
+  switch (conn->state)
+  {
+    /*For waiting unsolicited syns*/
+    case nat_conn_unest:
+      if (tcpHeader->flags == tcp_flag_syn
+        && !conn->last_state){
+        Debug("Dropping unsolicited syn\n");
+        conn->state=nat_conn_syn;
+        conn->last_state=true;
+        free(conn->packet);
+      }
+      break;
+
+    /*Look for syn+ack*/  
+    case nat_conn_syn:
+      if (tcpHeader->flags == tcp_flag_syn+tcp_flag_ack
+        && !conn->last_state){
+        Debug("Syn Ack recieved\n");
+        conn->state=nat_conn_synack;
+        conn->last_state = true;
+      }else if (tcpHeader->flags == tcp_flag_syn+tcp_flag_ack
+        && !conn->last_state){
+        Debug("Second syn, drop it\n");
+        conn->last_state = true;
+        pthread_mutex_unlock(&(nat->lock));
+        return 1;
+      }
+      break;
+
+    /*Look for ack to establish connection*/
+    case nat_conn_synack:
+      if (tcpHeader->flags == tcp_flag_ack
+        && !conn->last_state){
+        Debug("Connection established\n");
+        conn->state=nat_conn_est;
+        conn->last_state = true;
+      }
+      break;
+
+    /*Look for fin*/
+    case nat_conn_est:
+      if (tcpHeader->flags == tcp_flag_fin){
+        Debug("Fin1 recieved\n");
+        conn->state=nat_conn_fin1;
+        conn->last_state = true;
+      }
+      break;
+
+    /*Look for ack or fin+ack*/
+    case nat_conn_fin1:
+      if (tcpHeader->flags == tcp_flag_fin
+        && !conn->last_state){
+        Debug("Ack recieved\n");
+        conn->state=nat_conn_fin1ack;
+        conn->last_state_inter=true;
+      }
+      else if (tcpHeader->flags == tcp_flag_fin+tcp_flag_ack
+        && !conn->last_state){
+        Debug("Fin Ack recieved\n");
+        conn->state=nat_conn_fin2;
+        conn->last_state = true;
+      }
+      break;
+
+    /*Look for fin again*/
+    case nat_conn_fin1ack:
+      if (tcpHeader->flags == tcp_flag_fin
+        && !conn->last_state){
+        Debug("Fin2 recieved\n");
+        conn->state=nat_conn_fin1ack;
+        conn->last_state = true;
+      }
+      break;
+
+    /*Look for ack to fully close connection*/
+    case nat_conn_fin2:
+      if (tcpHeader->flags == tcp_flag_ack
+        && !conn->last_state){
+        Debug("Closing connection\n");
+        sr_nat_delete_connection(mapping,conn,prev_conn);
+        pthread_mutex_unlock(&(nat->lock));
+        return 0;
+      }
+      break;
+  }
+  
+
+  conn->time_wait=time(NULL);
+  print_hdr_tcp((uint8_t *)tcpHeader);
+  pthread_mutex_unlock(&(nat->lock));
+  return 0;
+}

@@ -348,7 +348,6 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
       else{
         Debug("Holding on to packet\n");
           conn->time_wait = time(NULL);
-          print_hdr_tcp((uint8_t *)tcpHeader);
           pthread_mutex_unlock(&(nat->lock));
           return 1;
       }
@@ -398,7 +397,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
         conn->last_state = false;
       }
       else if (tcpHeader->flags == tcp_flag_fin+tcp_flag_ack
-        && conn->last_state_inter){
+        && conn->last_state){
         Debug("Fin Ack recieved\n");
         conn->state=nat_conn_fin2;
         conn->last_state = false;

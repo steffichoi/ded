@@ -161,13 +161,148 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
 
 void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
   pthread_mutex_lock(&(nat->lock));
-  struct sr_nat_mapping* curr = nat->mappings;
-  while(curr){
-    if((curr->type == copy->type) && (curr->ip_int == copy->ip_int) && (curr->aux_int == copy->aux_int)){
-      curr->last_updated = time(NULL);
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      curr_map->last_updated = time(NULL);
       break;
     }
-    curr = curr->next;
+    curr_map = curr_map->next;
   }
   pthread_mutex_unlock(&(nat->lock));
 }
+
+/* tcp functions! */
+int sr_nat_est_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 
+  struct sr_nat_connection *con_copy) {
+  
+  pthread_mutex_lock(&(nat->lock));
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      struct sr_nat_connection* con = curr_map->conns;
+      while (con){
+        if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
+          con->established = 1;
+          if (con->pending_packet) {
+            free(con->pending_packet);
+            con->len = 0;
+          }
+          pthread_mutex_unlock(&(nat->lock));
+          return 1;
+        }
+        con = con->next;
+      }
+    break;
+    }
+  curr_map = curr_map->next;
+  }
+  pthread_mutex_unlock(&(nat->lock));
+  return 0;
+}
+
+void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, uint32_t ip_src, 
+  uint16_t port_src, uint32_t ip_dst, uint16_t port_dst, uint16_t seq_no, int established, 
+  uint8_t *packet, unsigned int len) {
+
+  pthread_mutex_lock(&(nat->lock));
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      struct sr_nat_connection *new_con = malloc(sizeof(struct sr_nat_connection));
+      new_con->ip_src = ip_src;
+      new_con->port_src = port_src;
+      new_con->ip_dst = ip_dst;
+      new_con->port_dst = port_dst;
+      new_con->seq_no = seq_no;
+      new_con->established = established;
+      new_con->packets = packet;
+      new_con->len = len;
+      new_con->last_updated = time(NULL);
+      new_con->next = curr_map->conns;
+      curr_map->conns = new_con;
+      break;
+    }
+    curr_map = curr_map->next;
+  }
+  pthread_mutex_unlock(&(nat->lock));
+}
+
+struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 
+  uint32_t ip_src, uint16_t port_src, uint32_t ip_dst, uint16_t port_dst) {
+  
+  pthread_mutex_lock(&(nat->lock));
+  struct sr_nat_connection *con_copy = NULL;
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      struct sr_nat_connection* con = curr_map->conns;
+      while (con){
+        if (con->ip_src == ip_src && con->port_src == port_src && con->ip_dst == ip_dst && con->port_dst == port_dst){
+          con_copy = malloc(sizeof(struct sr_nat_connection));
+          memcpy(con, con_copy, sizeof(struct sr_nat_connection));
+          
+          pthread_mutex_unlock(&(nat->lock));
+          return con_copy;
+        }
+        con = con->next;
+      }   
+      break;
+    }
+    curr_map = curr_map->next;
+  }
+  pthread_mutex_unlock(&(nat->lock));
+  return con_copy;
+}
+
+void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
+  struct sr_nat_connection *con_copy)) {
+  pthread_mutex_lock(&(nat->lock));
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      curr_map sr_nat_connection* con = curr_map->conns;
+      while (con){
+        if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src
+            && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
+          con->last_updated = time(NULL);
+          curr_map->last_updated = time(NULL);
+          break;
+        }
+        con = con->next;
+      }
+      break;
+    }
+    curr_map = curr_map->next;
+  }
+  pthread_mutex_unlock(&(nat->lock));
+}
+
+int sr_nat_update_seq_no(struct sr_nat *nat, struct sr_nat_mapping *copy, 
+  struct sr_nat_connection *con_copy, uint16_t seq_no) {
+  
+  pthread_mutex_lock(&(nat->lock));
+  struct sr_nat_mapping* curr_map = nat->mappings;
+  while(curr_map){
+    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+      struct sr_nat_connection* con = curr_map->conns;
+      while (con){
+        if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
+          con->seq_no = seq_no;
+          pthread_mutex_unlock(&(nat->lock));
+          return 1;
+        }
+        con = con->next;
+      } 
+      break;
+    }
+    curr_map = curr_map->next;
+  }
+  pthread_mutex_unlock(&(nat->lock));
+  return 0;
+}
+
+
+
+
+

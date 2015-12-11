@@ -161,6 +161,9 @@ int main(int argc, char **argv)
     }
 
     /* call router init (for arp subsystem etc.) */
+    if (nat_usage == 1) {
+        printf("nat enabled!\n");
+    }
     sr_init(&sr, nat_usage);
 
     /* -- whizbang main loop ;-) */

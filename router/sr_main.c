@@ -103,6 +103,7 @@ int main(int argc, char **argv)
                 template = optarg;
                 break;
             case 'n':
+                printf("nat here\n");
                 nat_usage = 1;
                 break;
         } /* switch */

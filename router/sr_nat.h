@@ -27,35 +27,25 @@ typedef enum {
 } sr_nat_mapping_type;
 
 typedef enum {
-  CLOSE_WAIT, /*waiting for remote host to close session request*/
-  CLOSED, /*DEFAULT, no session*/
-  CLOSING,/*waiting for remote host to close session ACK*/
-  ESTABLISHED,/*session is open*/
-  FIN_WAIT_1,
-  FIN_WAIT_2,
-  LAST_ACK,
-  LISTEN,/*waiting for connection request*/
-  SYN_RECEIVED,
-  SYN_SENT,
-  TIME_WAIT
-}STATES; /*TCP state machine*/
+  nat_conn_unest,
+  nat_conn_syn,
+  nat_conn_synack,
+  nat_conn_est,
+  nat_conn_fin1,
+  nat_conn_fin1ack,
+  nat_conn_fin2
+  /* nat_mapping_udp, */
+} sr_nat_conn_states;
 
 struct sr_nat_connection {
   /* add TCP connection state data members here */
   uint32_t ip_dst;
   uint16_t port_dst;
-  
-  uint32_t ip_src;
-  uint16_t port_src;
 
-  STATES state; /*session status*/
-  uint32_t LastReceivedAck; /*expected sequence should be this + 1*/
-  uint8_t* packets;
-  unsigned int len;
-  int seq_no; /*actual sequence number*/
+  sr_nat_conn_states state; /*session status*/
+
+  uint8_t* packet;  /* unsolicited packet */
   int time_wait;
-
-  int established;
   struct sr_nat_connection *next;
 };
 
@@ -74,16 +64,13 @@ struct sr_nat {
   /* add any fields here */
   struct sr_nat_mapping *mappings;
 
+  uint32_t ip_ext; /* external ip addr */
+  uint16_t next_ext_port;
+
   /* timeout values */
   uint16_t icmp_to;
   uint16_t tcp_establish_to;
   uint16_t tcp_transitory_to;
-
-  uint16_t icmp_id;
-  uint16_t tcp_id;
-
-  struct sr_if *int_list;  /* internal interfaces */
-  struct sr_if *ext_list;  /* external interfaces */
 
   /* threading */
   pthread_mutex_t lock;

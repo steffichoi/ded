@@ -144,7 +144,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       if (rt){
         struct sr_arpreq *req;
         sr_arpcache_insert(&(sr->cache), ethHeader->ether_shost, ipHeader->ip_src);
-        req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
+        sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, next_iface->name);
         send_request(sr, ipHeader->ip_dst);
       } else {
           sr_sendICMP(sr, packet, interface, 3, 0);

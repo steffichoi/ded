@@ -10,8 +10,7 @@
 #include "sr_utils.h"
 #include "sr_protocol.h"
 
-int sr_nat_init(struct sr_nat *nat) { /* Initializes the nat */
-sr_nat_init(&sr,icmp_timeout,tcp_est_timeout,tcp_trans_timeout);
+int sr_nat_init(struct sr_nat *nat, uint32_t icmp_to, uint32_t tcp_establish_to, uint32_t tcp_transitory_to) { /* Initializes the nat */
   assert(nat);
 
   /* Acquire mutex lock */
@@ -31,9 +30,9 @@ sr_nat_init(&sr,icmp_timeout,tcp_est_timeout,tcp_trans_timeout);
 
   nat->mappings = NULL;
   nat->next_ext_port = MIN_PORT;
-  nat->icmp_timeout=icmp_timeout;
-  nat->tcp_est_timeout=tcp_est_timeout;
-  nat->tcp_trans_timeout=tcp_trans_timeout;
+  nat->icmp_to=icmp_to;
+  nat->tcp_establish_to=tcp_establish_to;
+  nat->tcp_transitory_to=tcp_transitory_to;
   /* Initialize any variables here */
 
   return success;

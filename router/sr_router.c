@@ -141,7 +141,10 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       struct sr_rt* rt;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
       if (rt){
-          sr_sendIP(sr,packet,len,rt, interface);
+        struct sr_arpreq *req;
+        sr_arpcache_insert(&(sr->cache), ethHeader->ether_shost, ipHeader->ip_src);
+        req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
+        send_request(sr, ipHeader->ip_dst)
       } else {
           sr_sendICMP(sr, packet, interface, 3, 0);
       }

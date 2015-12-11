@@ -76,6 +76,8 @@ void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr
 void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
 
+/* ant application & tcp checksum */
+
 int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len);
 
 /* -- sr_if.c -- */

@@ -110,7 +110,7 @@ void sr_handlepacket(struct sr_instance* sr,
 }/* end sr_ForwardPacket */
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * iface){
-  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+SIZE_ETH);
+  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
@@ -132,10 +132,10 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
       fprintf(stderr,"ICMP\n");
-      sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+SIZE_ETH+SIZE_IP);
+      sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
       incm_cksum = icmp_header->icmp_sum;
       icmp_header->icmp_sum = 0;
-      calc_cksum = cksum((uint8_t*)icmp_header,len-SIZE_ETH-SIZE_IP);
+      calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
       icmp_header->icmp_sum = incm_cksum;
       uint8_t type = icmp_header->icmp_type;
       uint8_t code = icmp_header->icmp_code;

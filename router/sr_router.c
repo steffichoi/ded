@@ -49,6 +49,8 @@ void sr_init(struct sr_instance* sr)
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
 
     /* Add initialization code here! */
+    
+    
 } /* -- sr_init -- */
 
 void sr_nat_enable(struct sr_instance *sr, int nat_usage) {
@@ -271,3 +273,9 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
     sr_sendIP(sr, packet, len, rt);
   }
 }
+
+
+
+
+
+

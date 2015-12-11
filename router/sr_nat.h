@@ -104,6 +104,9 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 
 void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy);
 
+void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
+  struct sr_nat_mapping *prev)
+
 /* tcp connection functions */
 int sr_nat_est_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 
   struct sr_nat_connection *con_copy);
@@ -118,7 +121,12 @@ struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, struct sr_nat_m
 void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
   struct sr_nat_connection *con_copy);
 
-int sr_nat_update_seq_no(struct sr_nat *nat, struct sr_nat_mapping *copy, 
-  struct sr_nat_connection *con_copy, uint16_t seq_no);
+void sr_nat_delete_connection(struct sr_nat_mapping *map, struct sr_nat_connection *del_conn,
+    struct sr_nat_connection *prev);
+
+int sr_nat_handle_external_conn(struct sr_nat *nat,
+  struct sr_nat_mapping *copy,
+  uint8_t* packet /* borrowed */,
+  unsigned int len);
 
 #endif

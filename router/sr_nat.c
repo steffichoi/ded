@@ -83,8 +83,8 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     struct sr_nat_mapping *prev_map =  NULL;
     for(;curr_map != NULL; curr_map = curr_map->next){
       
-      int time_passed = difftime(curtime,curr_map->last_updated);
-      if (curr_map->type==nat_mapping_icmp && time_passed>=nat->icmp_timeout){
+      int time_passed = difftime(curtime,curr_map->time_wait);
+      if (curr_map->type==nat_mapping_icmp && time_passed>=nat->icmp_to){
         /* Deleting ICMP mapping */
         sr_nat_delete_mapping(nat,curr_map,prev_map);
       }
@@ -96,11 +96,11 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
           struct sr_nat_connection *curr_conn = curr_map->conns;
           struct sr_nat_connection *prev_conn = NULL;
           for(;curr_conn!=NULL;curr_conn=curr_conn->next){
-            int conn_time_passed = difftime(curtime,curr_conn->last_updated);
-            if(conn_time_passed>=nat->tcp_est_timeout && curr_conn->state == nat_conn_est){
+            int conn_time_passed = difftime(curtime,curr_conn->time_wait;
+            if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
               /*Deleting established TCP connection*/
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
-            }else if (time_passed>=nat->tcp_trans_timeout && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
+            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
               /* Deleting transitory TCP connection */
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){
@@ -361,18 +361,17 @@ void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
   pthread_mutex_unlock(&(nat->lock));
 }
 
-void sr_nat_delete_connection(struct sr_nat_mapping *map,
-    struct sr_nat_connection *del_conn,
-    struct sr_nat_connection *prev){
+void sr_nat_delete_connection(struct sr_nat_mapping *map, struct sr_nat_connection *del_conn,
+  struct sr_nat_connection *prev){
 
-    assert(del_conn);
+  assert(del_conn);
 
-    if(prev == NULL){
-      map->conns = del_conn->next;
-    }else{
-      prev->next = del_conn->next;
-    }
-    free(del_conn);
+  if(prev == NULL){
+    map->conns = del_conn->next;
+  }else{
+    prev->next = del_conn->next;
+  }
+  free(del_conn);
 }
 
 int sr_nat_handle_external_conn(struct sr_nat *nat,

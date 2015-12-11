@@ -251,11 +251,14 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     memcpy(ethPacket, ethHeader, sizeof(sr_ethernet_hdr_t));
     memcpy(ipPacket, ipHeader, sizeof(sr_ip_hdr_t));
 
-    switch_eth_dir(sr, packet, newPacket,iface);
-  
+    struct sr_if* interface = sr_get_interface(sr,iface);
+    assert(if_i);
+    int addr_i;
+    for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
+      ethPacket->ether_dhost[addr_i] = ethPacket->ether_shost[addr_i]; 
+      ethPacket->ether_shost[addr_i] = interface->addr[addr_i];
+    }
     ethPacket->ether_type = ntohs(ethertype_ip);
-
-    struct sr_if* interface = sr_get_interface(sr, iface);
  
     /*ipPacket->ip_len = sizeof(sr_ip_hdr_t);*/
     ipPacket->ip_p = ip_protocol_icmp;
@@ -307,7 +310,7 @@ int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   tcp_pshdr->ip_dst = ipHeader->ip_dst;
   tcp_pshdr->ip_p = ipHeader->ip_p;
   uint16_t tcp_length = len-sizeof(struct sr_ethernet_hdr)-sizeof(struct sr_ip_hdr);
-  tcp_pshdr->tcp_len = htons(tcp_length);
+  tcp_pshdr->len = htons(tcp_length);
 
   uint16_t checksum = tcpHeader->checksum;
   tcpHeader->checksum = 0; 

@@ -105,7 +105,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy);
 
 void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
-  struct sr_nat_mapping *prev)
+  struct sr_nat_mapping *prev);
 
 /* tcp connection functions */
 int sr_nat_est_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 

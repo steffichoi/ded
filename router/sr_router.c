@@ -104,12 +104,18 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
   sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
-  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
+  uint8_t* ip_packet = packet+sizeof(sr_ethernet_hdr_t);
+  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *) (ip_packet);
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
+  uint8_t *copyPacket = malloc(len);
+  memcpy(copyPacket,packet,len);
+  switch_eth_dir(sr,packet,copyPacket,interface);
+
   uint16_t incm_cksum = ipHeader->ip_sum;
+  currentChecksum = cksum(ipHeader, sizeof(sr_ip_hdr_t));
   ipHeader->ip_sum = 0;
-  if (incm_cksum != cksum(ipHeader, sizeof(sr_ip_hdr_t))) {
+  if (incm_cksum != currentChecksum) {
     fprintf(stderr, "Error: IP checksum failed \n");
     return;
   }
@@ -117,8 +123,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     return;
   }
   ipHeader->ip_sum = incm_cksum;
-
-  if (next_iface){
+  
+  /* found an interface */
+  if (next_iface && currentChecksum == incm_cksum){
     if(ipHeader->ip_p==6){ /*TCP*/
         sr_sendICMP(sr, packet, interface, 3, 3);
     } 
@@ -136,19 +143,38 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     }
   } 
   else if (ipHeader->ip_ttl == 0){   /* ttl ded */
-      sr_sendICMP(sr, packet, interface, 11, 0);
+    sr_sendICMP(sr, packet, interface, 11, 0);
+  }
+  /* packet not for me */
+  else if (currentChecksum == incm_cksum){
+    /* check cache for ip->mac mapping for next hop */
+    struct sr_arpentry *entry;
+    entry = sr_arpcache_lookup(&sr->cache, ipHeader->ip_dst);
+    struct sr_rt * rt = (struct sr_rt *)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
+
+    /* found next hop. send packet */
+    if (entry && rt) {    /* found next hop. send packet */
+      iface = sr_get_interface(sr, rt->interface);
+      ipHeader->ip_ttl = ipHeader->ip_ttl - 1;
+      ipHeader->ip_sum = 0;
+      ipHeader->ip_sum = cksum(ip_packet,20);
+
+      set_eth_addr(ethHeader, iface->addr, entry->mac);
+
+      sr_send_packet(sr,packet,len,iface->name);
+      free(entry);
+      ip_packet = NULL;
+    }
   }
   else {
-      struct sr_rt* rt;
-      rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-      if (rt){
-        struct sr_arpreq *req;
-        sr_arpcache_insert(&(sr->cache), ethHeader->ether_shost, ipHeader->ip_src);
-        req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
-        handle_arpreq(sr, req);
-      } else {
-          sr_sendICMP(sr, packet, interface, 3, 0);
-      }
+    struct sr_rt* rt;
+    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
+    if (rt){
+      sr_sendIP(sr, packet, len, rt, interface);
+    } 
+    else {
+      sr_sendICMP(sr, packet, interface, 3, 0);
+    }
   }
 }
 
@@ -303,6 +329,130 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     sr_send_packet(sr, newPacket, len, iface);
 }
 
+int sr_handle_nat(struct sr_instance* sr /* borrowed */, uint8_t* packet /* borrowed */ ,
+                  unsigned int len, const char* iface /* borrowed */)
+{
+  if(sr->nat == NULL)
+    return 0;
+  Debug("Applying NAT\n");
+  print_hdr_ip(packet+ sizeof(struct sr_ethernet_hdr));
+  sr_ip_hdr_t *pac_ip = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
+
+  struct sr_nat_mapping *mapping;
+  if(strcmp(iface,"eth1")==0){
+    Debug("Internal packet\n");
+    uint16_t aux_int;
+    sr_icmp_echo_hdr_t *pac_icmp;
+    sr_tcp_hdr_t *pac_tcp;
+
+    /*Internal mapping lookup and packet translating*/
+    sr_nat_mapping_type type;
+    
+    if (pac_ip->ip_p == ip_protocol_icmp){
+      Debug("ICMP Packet\n");
+      type = nat_mapping_icmp;
+      pac_icmp = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_int = ntohs(pac_icmp->icmp_id);
+      mapping = sr_nat_lookup_internal(sr->nat,ntohl(pac_ip->ip_src),aux_int,type);
+    }
+    else if (pac_ip->ip_p == ip_protocol_tcp){
+      Debug("TCP Packet\n");
+      type = nat_mapping_tcp;
+      pac_tcp = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_int=ntohs(pac_tcp->tcp_src_p);
+      mapping = sr_nat_lookup_internal(sr->nat,pac_ip->ip_src,aux_int,type);
+    }
+    
+    if (mapping == NULL){
+      Debug("No mapping available, making new one\n");
+      mapping = sr_nat_insert_mapping(sr->nat,pac_ip->ip_src,aux_int,type);
+    }
+    Debug("Applying map\n");
+    print_addr_ip_int(mapping->ip_ext);
+    print_addr_ip_int(mapping->ip_int);
+    pac_ip->ip_src=mapping->ip_ext;
+
+    if (pac_ip->ip_p == ip_protocol_icmp){
+      pac_icmp->icmp_id=htons(mapping->aux_ext);
+      pac_icmp->icmp_sum=0;
+      pac_icmp->icmp_sum = cksum(pac_icmp,sizeof(sr_icmp_echo_hdr_t));
+    }
+    else if (pac_ip->ip_p == ip_protocol_tcp){
+      pac_tcp->tcp_src_p=ntohs(mapping->aux_ext);
+      tcp_cksum(sr,packet,len);
+      if (sr_nat_handle_internal_conn(sr->nat,mapping,packet,len) ==1){
+        Debug("Something went wrong, dropping packet\n");
+        free(mapping);
+        return 1;
+      }
+    }
+  }
+
+  else{
+    Debug("External packet\n");
+    uint16_t aux_ext;
+    sr_icmp_echo_hdr_t *pac_icmp;
+    sr_tcp_hdr_t *pac_tcp;
+    sr_nat_mapping_type type;
+
+    /*Internal mapping lookup and packet translating*/
+    if (pac_ip->ip_p == ip_protocol_icmp){
+      Debug("ICMP Packet\n");
+      type = nat_mapping_icmp;
+      pac_icmp = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_ext = ntohs(pac_icmp->icmp_id);
+      Debug("%d\n",aux_ext);
+      mapping = sr_nat_lookup_external(sr->nat,aux_ext,type);
+    }
+    else if (pac_ip->ip_p == ip_protocol_tcp){
+      Debug("TCP Packet\n");
+      type = nat_mapping_tcp;
+      pac_tcp = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      mapping = sr_nat_lookup_external(sr->nat,ntohs(pac_tcp->tcp_dst_p),type);
+    }
+
+    if (mapping == NULL){
+      if (pac_ip->ip_p == ip_protocol_tcp){
+        Debug("Making wildcard mapping to handle unsolicited syns\n");
+        mapping = sr_nat_insert_mapping_unsol(sr->nat,ntohs(pac_tcp->tcp_dst_p),type);
+        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+          Debug("Unsolicited syn, don't send\n");
+          return 1;
+        }
+      }else{
+        Debug("No mapping available, welp\n");
+        free(mapping);
+        return 1;
+      }
+    }
+    else{
+      Debug("Mapping found, applying map\n");
+      pac_ip->ip_dst=mapping->ip_int;
+
+      if (pac_ip->ip_p == ip_protocol_icmp){
+        pac_icmp->icmp_id=ntohs(mapping->aux_int);
+        pac_icmp->icmp_sum=0;
+        pac_icmp->icmp_sum = cksum(pac_icmp,sizeof(sr_icmp_echo_hdr_t));
+      }
+      else if (pac_ip->ip_p == ip_protocol_tcp){
+        pac_tcp->tcp_dst_p=ntohs(mapping->aux_int);
+        tcp_cksum(sr,packet,len);
+      
+        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+          Debug("Unsolicited syn, don't send\n");
+          return 1;
+        }
+      }
+    }           
+  }
+
+  pac_ip->ip_sum=0;
+  pac_ip->ip_sum = cksum(pac_ip,sizeof(sr_ip_hdr_t));
+  if (mapping != NULL)
+    free(mapping);
+  return 0;
+}
+
 int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   
   assert(sr);
@@ -338,8 +488,3 @@ int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   free(total_tcp);
   return 0;
 }
-
-
-
-
-

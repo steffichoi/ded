@@ -265,8 +265,8 @@ void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
       while (con){
         if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src
             && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
-          con->last_updated = time(NULL);
-          curr_map->last_updated = time(NULL);
+          con->time_wait = time(NULL);
+          curr_map->time_wait = time(NULL);
           break;
         }
         con = con->next;

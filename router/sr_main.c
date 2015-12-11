@@ -103,7 +103,7 @@ int main(int argc, char **argv)
                 template = optarg;
                 break;
             case 'n':
-                nat_on = 1;
+                nat_usage = optarg;
                 break;
         } /* switch */
     } /* -- while -- */
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
     }
 
     /* call router init (for arp subsystem etc.) */
-    sr_init(&sr, nat_on);
+    sr_init(&sr, nat_usage);
 
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);

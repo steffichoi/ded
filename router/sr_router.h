@@ -58,7 +58,7 @@ struct sr_instance
     struct sr_nat* nat;
 };
 
-void sr_nat_enable(struct sr_instance *sr, int nat_usage);
+void sr_nat_enable(struct sr_instance *sr);
 /* -- sr_main.c -- */
 int sr_verify_routing_table(struct sr_instance* sr);
 

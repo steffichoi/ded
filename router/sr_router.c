@@ -48,14 +48,14 @@ void sr_init(struct sr_instance* sr, int nat_usage) {
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
 
     /* Add initialization code here! */
-    if (nat_usage == 1) {
-      printf("nat enabledd!\n");
-      sr_nat_enable(sr, nat_usage);
+    if (nat_usage == 'n') {
+      printf("nat enabled!\n");
+      sr_nat_enable(sr);
     }
 
 } /* -- sr_init -- */
 
-void sr_nat_enable(struct sr_instance *sr, int nat_usage) {
+void sr_nat_enable(struct sr_instance *sr) {
   sr_nat_init(sr->nat);
   sr->nat->int_list =  sr_get_interface(sr,"eth1");
   sr->nat->ext_list =  sr_get_interface(sr,"eth2");

@@ -148,7 +148,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
       nat->tcp_id = 1024;
     }
   }
-  mapping->last_updated = time(NULL);
+  mapping->time_wait = time(NULL);
   mapping->conns = NULL;
   mapping->next = nat->mappings;
 

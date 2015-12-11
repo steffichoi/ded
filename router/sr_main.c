@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+ #include <stdbool.h>
 #include <pwd.h>
 #include <sys/types.h>
 
@@ -31,6 +32,7 @@
 
 #include "sr_dumper.h"
 #include "sr_router.h"
+#include "sr_nat.h"
 #include "sr_rt.h"
 
 extern char* optarg;
@@ -44,6 +46,10 @@ extern char* optarg;
 #define DEFAULT_SERVER "localhost"
 #define DEFAULT_RTABLE "rtable"
 #define DEFAULT_TOPO 0
+
+#define DEFAULT_ICMP_TIMEOUT 60
+#define DEFAULT_TCP_EST_TIMEOUT 7440
+#define DEFAULT_TCP_TRANS_TIMEOUT 300
 
 static void usage(char* );
 static void sr_init_instance(struct sr_instance* );
@@ -65,15 +71,19 @@ int main(int argc, char **argv)
     unsigned int port = DEFAULT_PORT;
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
+
+    uint32_t icmp_timeout=DEFAULT_ICMP_TIMEOUT;
+    uint32_t tcp_est_timeout=DEFAULT_TCP_EST_TIMEOUT;
+    uint32_t tcp_trans_timeout=DEFAULT_TCP_TRANS_TIMEOUT;
+    bool nat_usage = false;
+
     struct sr_instance sr;
-    unsigned short nat_usage = 0;
-    unsigned int icmp_to = 60;
-    unsigned int tcp_establish_to = 7440;
-    unsigned int tcp_transitory_to = 300;
+    struct sr_nat nat;
+
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:n:I:E:R:")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:nI:E:R:")) != EOF)
     {
         switch (c)
         {
@@ -106,18 +116,18 @@ int main(int argc, char **argv)
                 template = optarg;
                 break;
             case 'n':
-                printf("nat here\n");
-                nat_usage = 1;
+                nat_usage=true;
                 break;
             case 'I':
-                icmp_to = atoi((char *) optarg);
+                icmp_timeout = atoi((char *) optarg);
                 break;
             case 'E':
-                tcp_establish_to = atoi((char *) optarg);
+                tcp_est_timeout = atoi((char *) optarg);
                 break;
             case 'R':
-                tcp_transitory_to = atoi((char *) optarg);
+                tcp_trans_timeout = atoi((char *) optarg);
                 break;
+
         } /* switch */
     } /* -- while -- */
 
@@ -174,10 +184,18 @@ int main(int argc, char **argv)
     }
 
     /* call router init (for arp subsystem etc.) */
-    if (nat_usage == 1) {
-        printf("nat enabled!\n");
+    sr_init(&sr);
+
+
+    /*Initialise NAT mode if enabled*/
+    if (nat_usage){
+        Debug("NAT mode enabled\n");
+        sr.nat=&nat;
+        sr_nat_init(&sr,icmp_timeout,tcp_est_timeout,tcp_trans_timeout);
+    }else{
+        sr.nat=NULL;
     }
-    sr_init(&sr, nat_usage);
+
 
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);
@@ -195,12 +213,20 @@ int main(int argc, char **argv)
 static void usage(char* argv0)
 {
     printf("Simple Router Client\n");
-    printf("Format: %s [-h] [-v host] [-s server] [-p port] [-n nat_usage]\n",argv0);
+    printf("Format: %s [-h] [-n] [-v host] [-s server] [-p port] \n",argv0);
     printf("           [-T template_name] [-u username] \n");
     printf("           [-t topo id] [-r routing table] \n");
-    printf("           [-l log file] \n");
+    printf("           [-l log file] [-I icmp query timeout]\n");
+    printf("           [-E tcp established idle timeout]\n");
+    printf("           [-R tcp transitory idle timeout]\n");
     printf("   defaults server=%s port=%d host=%s  \n",
             DEFAULT_SERVER, DEFAULT_PORT, DEFAULT_HOST );
+    printf("            icmp query timeout=%d  \n",
+            DEFAULT_ICMP_TIMEOUT);
+    printf("            tcp established idle timeout=%d  \n",
+            DEFAULT_TCP_EST_TIMEOUT);
+    printf("            tcp transitory idle timeout=%d  \n",
+            DEFAULT_TCP_TRANS_TIMEOUT);
 } /* -- usage -- */
 
 /*-----------------------------------------------------------------------------

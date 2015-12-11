@@ -66,6 +66,7 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
+    int nat_on = 0;
 
     printf("Using %s\n", VERSION_INFO);
 
@@ -100,6 +101,9 @@ int main(int argc, char **argv)
                 break;
             case 'T':
                 template = optarg;
+                break;
+            case 'n':
+                nat_on = 1;
                 break;
         } /* switch */
     } /* -- while -- */
@@ -157,7 +161,7 @@ int main(int argc, char **argv)
     }
 
     /* call router init (for arp subsystem etc.) */
-    sr_init(&sr);
+    sr_init(&sr, nat_on);
 
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);
@@ -175,7 +179,7 @@ int main(int argc, char **argv)
 static void usage(char* argv0)
 {
     printf("Simple Router Client\n");
-    printf("Format: %s [-h] [-v host] [-s server] [-p port] \n",argv0);
+    printf("Format: %s [-h] [-v host] [-s server] [-p port] [-n nat_usage]\n",argv0);
     printf("           [-T template_name] [-u username] \n");
     printf("           [-t topo id] [-r routing table] \n");
     printf("           [-l log file] \n");

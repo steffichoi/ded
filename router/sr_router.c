@@ -32,7 +32,7 @@
  *
  *---------------------------------------------------------------------*/
 
-void sr_init(struct sr_instance* sr) {
+void sr_init(struct sr_instance* sr, int nat_usage) {
     /* REQUIRES */
     assert(sr);
 
@@ -48,7 +48,10 @@ void sr_init(struct sr_instance* sr) {
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
 
     /* Add initialization code here! */
-
+    if (nat_usage == 1) {
+      printf("nat enabledd!\n");
+      sr_nat_enable(sr, nat_usage);
+    }
 
 } /* -- sr_init -- */
 

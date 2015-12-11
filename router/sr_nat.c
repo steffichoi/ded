@@ -184,8 +184,8 @@ int sr_nat_est_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
       while (con){
         if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
           con->established = 1;
-          if (con->pending_packet) {
-            free(con->pending_packet);
+          if (con->packets) {
+            free(con->packets);
             con->len = 0;
           }
           pthread_mutex_unlock(&(nat->lock));
@@ -256,7 +256,7 @@ struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, struct sr_nat_m
 }
 
 void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
-  struct sr_nat_connection *con_copy)) {
+  struct sr_nat_connection *con_copy) {
   pthread_mutex_lock(&(nat->lock));
   struct sr_nat_mapping* curr_map = nat->mappings;
   while(curr_map){

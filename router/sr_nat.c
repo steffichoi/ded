@@ -218,7 +218,7 @@ void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, uint32_t i
       new_con->established = established;
       new_con->packets = packet;
       new_con->len = len;
-      new_con->last_updated = time(NULL);
+      new_con->time_wait = time(NULL);
       new_con->next = curr_map->conns;
       curr_map->conns = new_con;
       break;
@@ -261,7 +261,7 @@ void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
   struct sr_nat_mapping* curr_map = nat->mappings;
   while(curr_map){
     if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
-      curr_map sr_nat_connection* con = curr_map->conns;
+      struct sr_nat_connection* con = curr_map->conns;
       while (con){
         if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src
             && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){

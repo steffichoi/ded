@@ -258,34 +258,6 @@ void sr_nat_delete_mapping(struct sr_nat *nat,bstruct sr_nat_mapping *del_map,
 }
 
 /* tcp functions! */
-int sr_nat_est_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 
-  struct sr_nat_connection *con_copy) {
-  
-  pthread_mutex_lock(&(nat->lock));
-  struct sr_nat_mapping* curr_map = nat->mappings;
-  while(curr_map){
-    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
-      struct sr_nat_connection* con = curr_map->conns;
-      while (con){
-        if (con->ip_src == con_copy->ip_src && con->port_src == con_copy->port_src && con->ip_dst == con_copy->ip_dst && con->port_dst == con_copy->port_dst){
-          con->established = 1;
-          if (con->packet) {
-            free(con->packet);
-            con->len = 0;
-          }
-          pthread_mutex_unlock(&(nat->lock));
-          return 1;
-        }
-        con = con->next;
-      }
-    break;
-    }
-  curr_map = curr_map->next;
-  }
-  pthread_mutex_unlock(&(nat->lock));
-  return 0;
-}
-
 void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, uint32_t ip_src, 
   uint16_t port_src, uint32_t ip_dst, uint16_t port_dst, uint16_t seq_no, int established, 
   uint8_t *packet, unsigned int len) {

@@ -102,7 +102,7 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
-void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface){
+void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
   sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
@@ -144,8 +144,8 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       if (rt){
         struct sr_arpreq *req;
         sr_arpcache_insert(&(sr->cache), ethHeader->ether_shost, ipHeader->ip_src);
-        sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, next_iface->name);
-        send_request(sr, ipHeader->ip_src);
+        req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
+        handle_arpreq(sr, req);
       } else {
           sr_sendICMP(sr, packet, interface, 3, 0);
       }

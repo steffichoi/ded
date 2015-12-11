@@ -183,7 +183,7 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
   }
 }
 
-sr_icmp_t3_hdr_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int len){
+uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int len){
   sr_icmp_t3_hdr_t *icmpHeader = (sr_icmp_t3_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
   
   if(type !=0 || code != 0){

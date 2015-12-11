@@ -255,8 +255,10 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
 
   if(rt){
     struct sr_if* iface = sr_get_interface(sr, rt->interface);
-    icmpHeader = createICMP(type, code, packet, len);
+    uint8_t *icmpPacket;
+    icmpPacket = createICMP(type, code, packet, len);
 
+    memcpy(icmpHeader, icmpPacket, sizeof(sr_icmp_t3_hdr_t *))
     memcpy(ethHeader->ether_shost,iface->addr,6);
     ethHeader->ether_type = htons(0x0800);
     if (ip_src == 0){

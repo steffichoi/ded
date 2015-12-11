@@ -46,7 +46,7 @@ void print_hdr_arp(uint8_t *buf);
 void print_hdrs(uint8_t *buf, uint32_t length);
 
 /* ICMP Methods */
-sr_icmp_t3_hdr_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int size);
+uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int size);
 void set_eth_addr(sr_ethernet_hdr_t* ethHeader, uint8_t* src_addr, uint8_t* dst_addr);
 
 #endif /* -- SR_UTILS_H -- */

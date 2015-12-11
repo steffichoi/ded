@@ -148,7 +148,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
       nat->tcp_id = 1024;
     }
   }
-  mapping->last_updated = time(NULL);
+  mapping->time_wait = time(NULL);
   mapping->conns = NULL;
   mapping->next = nat->mappings;
 
@@ -163,7 +163,7 @@ void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
   pthread_mutex_lock(&(nat->lock));
   struct sr_nat_mapping* curr_map = nat->mappings;
   while(curr_map){
-    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
+    if((curr_map->type time_wait copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
       curr_map->last_updated = time(NULL);
       break;
     }

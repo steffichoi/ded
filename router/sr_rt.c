@@ -205,7 +205,7 @@ struct sr_rt* sr_find_routing_entry_int(struct sr_instance* sr, uint32_t ip) {
       if (rt_mask+1 == 0) {  /* found match! */
         return rt_walker;
       }
-      else if (rt_msk > best_match) {  /* found partial match! */
+      else if (rt_mask > best_match) {  /* found partial match! */
         best_match = rt_mask;
         rt = rt_walker;
       }

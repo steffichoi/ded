@@ -187,6 +187,17 @@ enum sr_ip_protocol {
   ip_protocol_tcp = 0x0006,
 };
 
+enum sr_tcp_flags{
+  tcp_flag_fin = 0x0001,
+  tcp_flag_syn = 0x0002,
+  tcp_flag_rst = 0x0004,
+  tcp_flag_psh = 0x0008,
+  tcp_flag_ack = 0x0010,
+  tcp_flag_urg = 0x0020,
+  tcp_flag_ece = 0x0040,
+  tcp_flag_cwr = 0x0080,
+};
+
 enum sr_ethertype {
   ethertype_arp = 0x0806,
   ethertype_ip = 0x0800,

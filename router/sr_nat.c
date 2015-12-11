@@ -243,7 +243,7 @@ void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
   pthread_mutex_unlock(&(nat->lock));
 }
 
-void sr_nat_delete_mapping(struct sr_nat *nat,bstruct sr_nat_mapping *del_map,
+void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
   struct sr_nat_mapping *prev){
 
   assert(del_map);
@@ -321,7 +321,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
     conn->last_state = false;
     uint8_t* unsol_pac = malloc(len);
     memcpy(unsol_pac,packet,len);
-    conn->unsol_pac= unsol_pac;
+    conn->packet= unsol_pac;
     conn->next=NULL;
 
     /*Adds to connections*/

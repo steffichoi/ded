@@ -75,9 +75,8 @@ void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr
 /* sending packets */
 void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
-/* nat handling */
-void sr_nat_handleInternal();
-void sr_nat_handlelExternal();
+
+int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );

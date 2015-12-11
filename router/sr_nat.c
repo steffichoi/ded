@@ -471,7 +471,7 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
   }
   /*Connection doesn't exist*/
   if (conn == NULL){
-    if(tcpHeader->tcp != tcp_flag_syn){
+    if(tcpHeader->flags != tcp_flag_syn){
       Debug("New connection, but this isn't a syn packet\n");
       pthread_mutex_unlock(&(nat->lock));
       return 1;

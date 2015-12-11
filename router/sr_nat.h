@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include "sr_if.h"
 
 #define MAX_HOSTS 256

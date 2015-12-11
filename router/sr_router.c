@@ -255,11 +255,9 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
 
   if(rt){
     struct sr_if* iface = sr_get_interface(sr, rt->interface);
-    uint8_t *icmpPacket = createICMP(type, code, packet, len);
+    icmpHeader = createICMP(type, code, packet, len);
 
-    memcpy(icmpHeader, icmpPacket, sizeof(icmpPacket));
     memcpy(ethHeader->ether_shost,iface->addr,6);
-
     ethHeader->ether_type = htons(0x0800);
     if (ip_src == 0){
       ip_src = iface->ip;
@@ -272,9 +270,9 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
     ipHeader->ip_ttl = 64;
     ipHeader->ip_p = 1;
     ipHeader->ip_sum = 0;
-    ipHeader->ip_dst = ip_header->ip_src;
+    ipHeader->ip_dst = ipHeader->ip_src;
     ipHeader->ip_src = ip_src;
-    ipHeader->ip_sum = cksum((uint8_t*)(ip_header),sizeof(sr_ip_hdr_t));
+    ipHeader->ip_sum = cksum((uint8_t*)(ipHeader),sizeof(sr_ip_hdr_t));
 
     sr_sendIP(sr, packet, len, rt);
   }

@@ -364,7 +364,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
 
       /* get outgoing interface and send the request */
       struct sr_if* if_walker;
-      if_walker = sr_get_interface(sr, req->packet->iface);
+      if_walker = sr_get_interface(sr, req->packets->iface);
 
       while(if_walker) {
         arpHeader->ar_sip = if_walker->ip;

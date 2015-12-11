@@ -65,7 +65,7 @@ struct sr_nat_mapping {
   uint32_t ip_ext; /* external ip addr */
   uint16_t aux_int; /* internal port or icmp id */
   uint16_t aux_ext; /* external port or icmp id */
-  time_t last_updated; /* use to timeout mappings */
+  time_t time_wait; /* use to timeout mappings */
   struct sr_nat_connection *conns; /* list of connections. null for ICMP */
   struct sr_nat_mapping *next;
 };

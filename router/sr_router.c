@@ -111,7 +111,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
-  struct sr_if *iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
+  struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
   ipHeader->ip_sum = 0;
@@ -120,7 +120,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   if (calc_cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
   } 
-  else if (iface){
+  else if (next_iface){
     fprintf(stderr,"For us\n");
     if(ipHeader->ip_p==6){ /*TCP*/
         fprintf(stderr,"TCP\n");

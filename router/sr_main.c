@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
-    int nat_on = 0;
+    char *nat_usage = 0;
 
     printf("Using %s\n", VERSION_INFO);
 

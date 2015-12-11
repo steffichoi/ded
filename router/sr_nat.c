@@ -459,7 +459,7 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
   assert(mapping);
 
   uint32_t ip_dst = ntohs(ipHeader->ip_dst);
-  uint16_t port_dst = ntohs(tcpHeader->tcp_dst_p);
+  uint16_t port_dst = ntohs(tcpHeader->destination);
 
   Debug("Connection lookup\n");
   struct sr_nat_connection *conn = mapping->conns;
@@ -471,7 +471,7 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
   }
   /*Connection doesn't exist*/
   if (conn == NULL){
-    if(tcpHeader->tcp_flags != tcp_flag_syn){
+    if(tcpHeader->tcp != tcp_flag_syn){
       Debug("New connection, but this isn't a syn packet\n");
       pthread_mutex_unlock(&(nat->lock));
       return 1;
@@ -553,7 +553,7 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
         && !conn->last_state){
         Debug("Ack recieved\n");
         conn->state=nat_conn_fin1ack;
-        conn->last_state_inter=true;
+        conn->last_state = true;
       }
       else if (tcpHeader->flags == tcp_flag_fin+tcp_flag_ack
         && !conn->last_state){
@@ -584,10 +584,7 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
       }
       break;
   }
-  
-
   conn->time_wait=time(NULL);
-  print_hdr_tcp((uint8_t *)tcpHeader);
   pthread_mutex_unlock(&(nat->lock));
   return 0;
 }

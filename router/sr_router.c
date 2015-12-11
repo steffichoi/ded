@@ -252,7 +252,6 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     memcpy(ipPacket, ipHeader, sizeof(sr_ip_hdr_t));
 
     struct sr_if* interface = sr_get_interface(sr,iface);
-    assert(if_i);
     int addr_i;
     for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
       ethPacket->ether_dhost[addr_i] = ethPacket->ether_shost[addr_i]; 

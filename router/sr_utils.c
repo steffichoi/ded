@@ -204,7 +204,7 @@ uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int le
   icmpHeader->icmp_code = code;
   icmpHeader->icmp_sum = 0;
   icmpHeader->icmp_sum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-  return icmpHeader;
+  return (uint8_t *)icmpHeader;
 }
 
 void set_eth_addr(sr_ethernet_hdr_t* ethHeader, uint8_t *src_addr, uint8_t *dst_addr) {

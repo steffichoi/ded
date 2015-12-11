@@ -340,6 +340,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
   time_t curtime = time(NULL);
   struct sr_packet *packet;
   struct sr_arpcache *cache = &(sr->cache);
+  char * iface =0;
 
   if (difftime(curtime, req->sent) > 1.0) {
     

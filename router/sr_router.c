@@ -117,21 +117,14 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   ipHeader->ip_sum = 0;
   uint16_t calc_cksum = cksum((uint8_t*)ipHeader,20);
   ipHeader->ip_sum = incm_cksum;
-  if (calc_cksum != incm_cksum){
-      fprintf(stderr,"Bad checksum\n");
-  } 
-  else if (next_iface){
-    fprintf(stderr,"For us\n");
+  if (next_iface && calc_cksum == incm_cksum){
     if(ipHeader->ip_p==6){ /*TCP*/
-        fprintf(stderr,"TCP\n");
         sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
     else if (ipHeader->ip_p==17){ /*UDP*/
-      fprintf(stderr,"UDP\n");
       sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
-      fprintf(stderr,"ICMP\n");
       sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
       incm_cksum = icmp_header->icmp_sum;
       icmp_header->icmp_sum = 0;
@@ -139,16 +132,15 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       icmp_header->icmp_sum = incm_cksum;
       uint8_t type = icmp_header->icmp_type;
       uint8_t code = icmp_header->icmp_code;
-      if (incm_cksum != calc_cksum){
-          fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
-      } 
-      else if (type == 8 && code == 0) {
+      if (type == 8 && code == 0) {
           sr_sendICMP(sr, packet, len, 0, 0, ipHeader->ip_dst);
       }
     }
-  } else if (ipHeader->ip_ttl <= 1){   /* ttl ded */
+  } 
+  else if (ipHeader->ip_ttl <= 1){   /* ttl ded */
       sr_sendICMP(sr, packet, len, 11, 0,0);
-  } else {
+  }
+  else {
       struct sr_rt* rt;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
       if (rt){

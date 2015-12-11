@@ -83,14 +83,14 @@
   checking whether we should resend an request or destroy the arp request.
   See the comments in the header file for an idea of what it should look like.
 */
-void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
+void sr_arpcache_sweepreqs(struct sr_instance *sr, char *iface) { 
     /* Fill this in */
     struct sr_arpreq *req;
     struct sr_arpreq *next_req;
 
     for (req = sr->cache.requests; req != NULL; req = next_req) {
       next_req = req->next;
-      handle_arpreq(sr, req);
+      handle_arpreq(sr, req, iface);
     }
 }
 
@@ -320,7 +320,7 @@ void *sr_arpcache_timeout(void *sr_ptr) {
 }
 
 /* Helper function to handle ARP requests */
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req, char *iface) {
   time_t curtime = time(NULL);
   struct sr_packet *packet;
   struct sr_arpcache *cache = &(sr->cache);
@@ -331,7 +331,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     if (req->times_sent >= 5) {
       pthread_mutex_lock(&(cache->lock));
       for (packet = req->packets; packet != NULL; packet = packet->next) {
-        sr_sendICMP(sr, packet->buf, packet->len, 3, 1, 0);
+        sr_sendICMP(sr, packet->buf, iface, 3, 1);
       }
       sr_arpreq_destroy(&sr->cache, req);
       pthread_mutex_unlock(&(cache->lock));

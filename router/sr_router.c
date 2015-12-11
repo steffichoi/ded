@@ -139,7 +139,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       struct sr_rt* rt;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
       if (rt){
-          sr_sendIP(sr,packet,len,rt);
+          sr_sendIP(sr,packet,len,rt, interface);
       } else {
           sr_sendICMP(sr, packet, interface, 3, 0);
       }
@@ -207,7 +207,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
     }
 }
 
-void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt) {
+void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt, char *interface) {
   struct sr_if* iface = sr_get_interface(sr, rt->interface);
   
   pthread_mutex_lock(&(sr->cache.lock));
@@ -228,7 +228,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
     memcpy(ethHeader->ether_shost, iface->addr, 6);
     struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
                                                  len, rt->interface);
-    handle_arpreq(sr,req);
+    handle_arpreq(sr,req, interface);
   }
   pthread_mutex_unlock(&(sr->cache.lock));
 }

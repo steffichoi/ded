@@ -126,7 +126,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
       incm_cksum = icmpHeader->icmp_sum;
       icmpHeader->icmp_sum = 0;
-      calc_cksum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
       icmpHeader->icmp_sum = incm_cksum;
       if (icmpHeader->icmp_type == 8 && icmpHeader->icmp_code == 0) {
           sr_sendICMP(sr, packet, interface, 0, 0);
@@ -234,7 +233,7 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   pthread_mutex_unlock(&(sr->cache.lock));
 }
 
-void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char iface, uint8_t type, uint8_t code) {
+void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uint8_t type, uint8_t code) {
    sr_ethernet_hdr_t *ethHeader = (sr_ethernet_hdr_t *)(packet);  
     sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
   
@@ -310,8 +309,8 @@ int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   uint16_t tcp_length = len-sizeof(struct sr_ethernet_hdr)-sizeof(struct sr_ip_hdr);
   tcp_pshdr->tcp_len = htons(tcp_length);
 
-  uint16_t checksum = tcpHeader->tcp_sum;
-  tcpHeader->tcp_sum = 0; 
+  uint16_t checksum = tcpHeader->checksum;
+  tcpHeader->checksum = 0; 
 
   uint8_t *total_tcp = calloc(1, sizeof(struct sr_tcp_pshdr)+tcp_length);
   memcpy(total_tcp,tcp_pshdr, sizeof(struct sr_tcp_pshdr));
@@ -320,12 +319,12 @@ int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   Debug("TCP Checksum: %d \n",cksum(total_tcp, sizeof(struct sr_tcp_pshdr)+tcp_length)); 
   uint16_t new_cksum = cksum(total_tcp, sizeof(struct sr_tcp_pshdr)+tcp_length);
   if (checksum != new_cksum) {
-      tcpHeader->tcp_sum = new_cksum;
+      tcpHeader->checksum = new_cksum;
       free(tcp_pshdr);
       free(total_tcp);
       return 1;
   }
-  tcpHeader->tcp_sum = new_cksum;
+  tcpHeader->checksum = new_cksum;
   free(tcp_pshdr);
   free(total_tcp);
   return 0;

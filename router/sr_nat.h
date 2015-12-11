@@ -72,6 +72,8 @@ struct sr_nat {
   uint16_t tcp_establish_to;
   uint16_t tcp_transitory_to;
 
+  bool last_state;  /* true if last state was internal; false otherwise */
+
   /* threading */
   pthread_mutex_t lock;
   pthread_mutexattr_t attr;

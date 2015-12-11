@@ -200,7 +200,7 @@ struct sr_rt* sr_find_routing_entry_int(struct sr_instance* sr, uint32_t ip) {
     uint32_t rt_ip = (uint32_t)(rt_walker->dest.s_addr);
     uint32_t rt_mask = (uint32_t)(rt_walker->mask.s_addr);
     uint32_t rt_entry = (rt_ip&rt_msk);
-    uint32_t ip_masked = (ip&rt_msk);
+    uint32_t ip_masked = (ip&rt_mask);
     if((ip_masked^rt_entry) == 0){
       if (rt_mask+1 == 0) {  /* found match! */
         return rt_walker;

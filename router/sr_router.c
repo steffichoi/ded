@@ -125,14 +125,12 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
-      sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-      incm_cksum = icmp_header->icmp_sum;
-      icmp_header->icmp_sum = 0;
-      calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-      icmp_header->icmp_sum = incm_cksum;
-      uint8_t type = icmp_header->icmp_type;
-      uint8_t code = icmp_header->icmp_code;
-      if (type == 8 && code == 0) {
+      sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+      incm_cksum = icmpHeader->icmp_sum;
+      icmpHeader->icmp_sum = 0;
+      calc_cksum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+      icmpHeader->icmp_sum = incm_cksum;
+      if (icmpHeader->icmp_type == 8 && icmpHeader->icmp_code == 0) {
           sr_sendICMP(sr, packet, len, 0, 0, ipHeader->ip_dst);
       }
     }
@@ -273,11 +271,3 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *buf, unsigned int len, uint8_t
     sr_sendIP(sr, packet, len, rt);
   }
 }
-
-
-
-
-
-
-
-

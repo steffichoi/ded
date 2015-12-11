@@ -109,10 +109,10 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
-  uint16_t currentChecksum = cksum(ipHeader, sizeof(sr_ip_hdr_t));
+  uint16_t currentChecksum = (uint16_t) cksum(ipHeader, sizeof(sr_ip_hdr_t));
   ipHeader->ip_sum = 0;
 
-  if (incm_cksum != cksum(ipHeader, sizeof(sr_ip_hdr_t))) {
+  if (incm_cksum != currentChecksum) {
     fprintf(stderr, "Error: IP checksum failed \n");
     return;
   }

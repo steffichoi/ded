@@ -9,6 +9,10 @@
 #include "sr_if.h"
 
 #define MAX_HOSTS 256
+
+#define MIN_PORT 1024
+#define MAX_PORT 65535
+
 /*only take in this many tcp sessions*/
 #define FIN 1
 #define SYN 2
@@ -86,7 +90,7 @@ struct sr_nat {
 };
 
 
-int sr_nat_init(struct sr_instance *,uint32_t,uint32_t,uint32_t);  /* Initializes the nat */
+int sr_nat_init(struct sr_instance *, uint32_t, uint32_t, uint32_t);  /* Initializes the nat */
 int   sr_nat_destroy(struct sr_nat *nat);  /* Destroys the nat (free memory) */
 void *sr_nat_timeout(void *nat_ptr);  /* Periodic Timout */
 

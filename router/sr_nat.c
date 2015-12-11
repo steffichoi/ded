@@ -10,7 +10,9 @@
 #include "sr_utils.h"
 #include "sr_protocol.h"
 
-int sr_nat_init(struct sr_nat *nat, uint32_t icmp_to, uint32_t tcp_establish_to, uint32_t tcp_transitory_to) { /* Initializes the nat */
+int sr_nat_init(struct sr_instance *sr, uint32_t icmp_to, uint32_t tcp_establish_to, uint32_t tcp_transitory_to) { /* Initializes the nat */
+  assert(sr);
+  struct sr_nat *nat = sr->nat;
   assert(nat);
 
   /* Acquire mutex lock */
@@ -428,9 +430,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
       }
       break;
   }
-  
   conn->time_wait=time(NULL);
-  print_hdr_tcp((uint8_t *)tcpHeader);
   pthread_mutex_unlock(&(nat->lock));
   return 0;
 }

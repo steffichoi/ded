@@ -70,7 +70,8 @@ int sr_nat_destroy(struct sr_nat *nat) {  /* Destroys the nat (free memory) */
   pthread_mutexattr_destroy(&(nat->attr));
 }
 
-void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
+void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
+  struct sr_instance *sr = sr_ptr;
   struct sr_nat *nat = (struct sr_nat *)nat_ptr;
   while (1) {
     sleep(1.0);
@@ -100,7 +101,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
             if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
               /*Deleting established TCP connection*/
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
-            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
+            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && curr_conn->state != nat_conn_unest){
               /* Deleting transitory TCP connection */
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){

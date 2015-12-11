@@ -46,6 +46,7 @@ struct sr_nat_connection {
   uint16_t port_src;
 
   sr_nat_conn_states state; /*session status*/
+  bool last_state;
 
   uint8_t* packet;  /* unsolicited packet */
   int time_wait;

@@ -296,7 +296,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
   assert(mapping);
 
   uint32_t ip_dst = ntohs(ipHeader->ip_src);
-  uint16_t port_dst = ntohs(tcpHeader->tcp_src_p);
+  uint16_t port_dst = ntohs(tcpHeader->source);
 
   Debug("Connection lookup\n");
   struct sr_nat_connection *conn = mapping->conns;
@@ -308,7 +308,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
   }
   /*Connection doesn't exist*/
   if (conn == NULL){
-    if(tcpHeader->tcp_flags != tcp_flag_syn){
+    if(tcpHeader->flags != tcp_flag_syn){
       Debug("Huh? This isn't a syn packet\n");
       pthread_mutex_unlock(&(nat->lock));
       return 1;
@@ -356,12 +356,12 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for syn+ack*/  
     case nat_conn_syn:
-      if (tcpHeader->tcp_flags == tcp_flag_syn+tcp_flag_ack
+      if (tcpHeader->flags == tcp_flag_syn+tcp_flag_ack
         && conn->last_state){
         Debug("Syn Ack recieved\n");
         conn->state=nat_conn_synack;
         conn->last_state = false;
-      }else if (tcpHeader->tcp_flags == tcp_flag_syn+tcp_flag_ack
+      }else if (tcpHeader->flags == tcp_flag_syn+tcp_flag_ack
         && conn->last_state){
         Debug("Second syn, drop it\n");
         conn->last_state = false;
@@ -372,7 +372,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for ack to establish connection*/
     case nat_conn_synack:
-      if (tcpHeader->tcp_flags == tcp_flag_ack
+      if (tcpHeader->flags == tcp_flag_ack
         && conn->last_state){
         Debug("Connection established\n");
         conn->state=nat_conn_est;
@@ -382,7 +382,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for fin*/
     case nat_conn_est:
-      if (tcpHeader->tcp_flags == tcp_flag_fin){
+      if (tcpHeader->flags == tcp_flag_fin){
         Debug("Fin1 recieved\n");
         conn->state=nat_conn_fin1;
         conn->last_state = false;
@@ -391,13 +391,13 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for ack or fin+ack*/
     case nat_conn_fin1:
-      if (tcpHeader->tcp_flags == tcp_flag_fin
+      if (tcpHeader->flags == tcp_flag_fin
         && conn->last_state){
         Debug("Ack recieved\n");
         conn->state=nat_conn_fin1ack;
         conn->last_state = false;
       }
-      else if (tcpHeader->tcp_flags == tcp_flag_fin+tcp_flag_ack
+      else if (tcpHeader->flags == tcp_flag_fin+tcp_flag_ack
         && conn->last_state_inter){
         Debug("Fin Ack recieved\n");
         conn->state=nat_conn_fin2;
@@ -407,7 +407,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for fin again*/
     case nat_conn_fin1ack:
-      if (tcpHeader->tcp_flags == tcp_flag_fin
+      if (tcpHeader->flags == tcp_flag_fin
         && conn->last_state){
         Debug("Fin2 recieved\n");
         conn->state=nat_conn_fin1ack;
@@ -417,7 +417,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
 
     /*Look for ack to fully close connection*/
     case nat_conn_fin2:
-      if (tcpHeader->tcp_flags == tcp_flag_ack
+      if (tcpHeader->flags == tcp_flag_ack
         && conn->last_state){
         Debug("Closing connection\n");
         sr_nat_delete_connection(mapping,conn,prev_conn);

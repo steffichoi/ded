@@ -96,7 +96,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
           struct sr_nat_connection *curr_conn = curr_map->conns;
           struct sr_nat_connection *prev_conn = NULL;
           for(;curr_conn!=NULL;curr_conn=curr_conn->next){
-            int conn_time_passed = difftime(curtime,curr_conn->time_wait;
+            int conn_time_passed = difftime(curtime,curr_conn->time_wait);
             if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
               /*Deleting established TCP connection*/
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
@@ -110,13 +110,15 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
               free(curr_conn->packet);
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }
-            else
+            else{
               prev_conn = curr_conn;
+            }
           }
         }
       }
-      else
+      else {
         prev_map = curr_map;
+      }
     }
     pthread_mutex_unlock(&(nat->lock));
   }

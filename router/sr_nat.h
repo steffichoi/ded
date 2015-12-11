@@ -42,6 +42,8 @@ struct sr_nat_connection {
   /* add TCP connection state data members here */
   uint32_t ip_dst;
   uint16_t port_dst;
+  uint32_t ip_src;
+  uint16_t port_src;
 
   sr_nat_conn_states state; /*session status*/
 

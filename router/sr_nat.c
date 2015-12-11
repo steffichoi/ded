@@ -72,7 +72,7 @@ int sr_nat_destroy(struct sr_nat *nat) {  /* Destroys the nat (free memory) */
 
 void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
   struct sr_instance *sr = sr_ptr;
-  struct sr_nat *nat = (struct sr_nat *)nat_ptr;
+  struct sr_nat *nat = (struct sr_nat *)sr->nat;
   while (1) {
     sleep(1.0);
     pthread_mutex_lock(&(nat->lock));
@@ -199,9 +199,11 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
     }
     nat->next_ext_port = port;
 
-  }else{
+  }
+  /*
+  else{
     aux_ext = nrand16(1);
-  } 
+  } */
   /*Set values*/
   mapping->type = type;
   mapping->ip_int = ip_int;

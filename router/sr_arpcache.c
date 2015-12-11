@@ -83,14 +83,28 @@
   checking whether we should resend an request or destroy the arp request.
   See the comments in the header file for an idea of what it should look like.
 */
-void sr_arpcache_sweepreqs(struct sr_instance *sr, char *iface) { 
+void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
-    struct sr_arpreq *req;
-    struct sr_arpreq *next_req;
+    struct sr_arpreq *request = sr->cache.requests;    
+    while (request) {
+        struct sr_arpreq *next_bku = request->next;
 
-    for (req = sr->cache.requests; req != NULL; req = next_req) {
-      next_req = req->next;
-      handle_arpreq(sr, req, iface);
+        if (difftime(time(NULL),(int)(request->sent)) > 1.0){
+          if(request->times_sent <= 5){
+                request->times_sent ++;
+                send_request(sr,request->ip);
+                request->sent = time(NULL);
+            }
+            else{
+                struct sr_packet* pac = request->packets;
+
+                for(;pac != NULL; pac = pac->next){
+                    sr_sendICMP(sr, pac->buf, pac->iface, 3, 1); 
+                }
+                sr_arpreq_destroy(&( sr->cache), request);
+            }
+        }
+        request = next_bku;
     }
 }
 
@@ -320,7 +334,7 @@ void *sr_arpcache_timeout(void *sr_ptr) {
 }
 
 /* Helper function to handle ARP requests */
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req, char *iface) {
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
   time_t curtime = time(NULL);
   struct sr_packet *packet;
   struct sr_arpcache *cache = &(sr->cache);
@@ -382,3 +396,56 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req, char *iface) {
     }
   }
 }
+
+void send_request(struct sr_instance* sr, uint32_t ip) {
+  assert(sr);
+
+  int len = sizeof(struct sr_ethernet_hdr)+ sizeof(struct sr_arp_hdr);
+  uint8_t* req_pac = malloc(len);
+  sr_ethernet_hdr_t *e_ret = (sr_ethernet_hdr_t *)(req_pac);    
+  
+  struct sr_rt* rt_t = sr->routing_table;
+  assert(rt_t);
+  for(;rt_t != NULL; rt_t=rt_t->next){
+    if((rt_t->dest).s_addr == ip){
+      Debug("Int %s\n",rt_t->interface );
+      break;
+    }
+  }
+  if (rt_t == NULL){
+    fprintf(stderr, "Address not found on routing table: \n" );
+    /*print_addr_ip_int(ntohl(ip));*/
+    return;
+  }
+
+  struct sr_if* out_iface = sr_get_interface(sr,rt_t->interface);
+  assert(out_iface);
+
+  Debug("%s\n",out_iface->name );
+  unsigned char* iface_addr = out_iface->addr;
+
+  sr_arp_hdr_t* a_ret = (sr_arp_hdr_t*)(req_pac + sizeof(sr_ethernet_hdr_t));
+  int i;
+  for(i=0;i<ETHER_ADDR_LEN;i++){
+    e_ret->ether_dhost[i] =0xFF;
+    e_ret->ether_shost[i] = iface_addr[i];
+    a_ret->ar_sha[i] = iface_addr[i];
+    a_ret->ar_tha[i]= 0x0000;
+  }
+
+  e_ret->ether_type = ntohs(ethertype_arp);
+
+  a_ret->ar_hrd=ntohs(0x0001);
+  a_ret->ar_pro=ntohs(0x0800);
+  a_ret->ar_hln=0x0006;
+  a_ret->ar_pln=0x0004;
+  a_ret->ar_op=ntohs(0x0001);
+  a_ret->ar_sip=out_iface->ip;
+  a_ret->ar_tip=ip;
+/*  print_hdrs(req_pac,len);*/
+  sr_send_packet(sr,req_pac,len,out_iface->name);
+  free(req_pac);
+}
+
+
+

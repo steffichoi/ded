@@ -32,7 +32,7 @@
  *
  *---------------------------------------------------------------------*/
 
-void sr_init(struct sr_instance* sr, int nat_usage) {
+void sr_init(struct sr_instance* sr) {
     /* REQUIRES */
     assert(sr);
 

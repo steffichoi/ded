@@ -221,7 +221,6 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   sr_ip_hdr_t* ipHeader = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
     
   if (entry) {
-    fprintf(stderr,"cache hit\n");
     iface = sr_get_interface(sr, rt->interface);
     set_eth_addr(ethHeader, iface->addr, entry->mac);
     ipHeader->ip_ttl = ipHeader->ip_ttl - 1;

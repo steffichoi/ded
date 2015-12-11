@@ -76,6 +76,7 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(sr);
   assert(packet);
   assert(interface);
+  struct sr_if * iface = sr_get_interface(sr, interface);
   printf("*** -> Received packet of length %d \n",len);
 
   /* Ethernet Protocol */
@@ -87,7 +88,7 @@ void sr_handlepacket(struct sr_instance* sr,
     
     if(package_type == ethertype_arp){
       /* ARP protocol */
-      sr_handleARPpacket(sr, ether_packet, len, interface);
+      sr_handleARPpacket(sr, ether_packet, len, iface);
     }else if(package_type == ethertype_ip){
       /* IP protocol */
       sr_handleIPpacket(sr, ether_packet,len, interface);
@@ -99,7 +100,7 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
-void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * interface){
+void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 

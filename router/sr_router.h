@@ -70,11 +70,11 @@ int sr_read_from_server(struct sr_instance* );
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance*, int nat_on);
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
-void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, struct sr_if*);
+void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, char *);
 void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr_if*);
 /* sending packets */
 void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt);
-void sr_sendICMP(struct sr_instance*, uint8_t*, unsigned int, uint8_t, uint8_t, uint32_t);
+void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
 /* nat handling */
 void sr_nat_handleInternal();
 void sr_nat_handlelExternal();

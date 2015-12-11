@@ -48,7 +48,7 @@ void sr_init(struct sr_instance* sr, int nat_usage) {
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
 
     /* Add initialization code here! */
-    if (nat_usage == 'n') {
+    if (nat_usage == 1) {
       printf("nat enabled!\n");
       sr_nat_enable(sr);
     }

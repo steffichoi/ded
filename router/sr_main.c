@@ -66,11 +66,11 @@ int main(int argc, char **argv)
     unsigned int topo = DEFAULT_TOPO;
     char *logfile = 0;
     struct sr_instance sr;
-    char *nat_usage = 0;
+    int nat_usage = 0;
 
     printf("Using %s\n", VERSION_INFO);
 
-    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:l:T:")) != EOF)
+    while ((c = getopt(argc, argv, "hs:v:p:u:t:r:n:l:T:")) != EOF)
     {
         switch (c)
         {
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
                 template = optarg;
                 break;
             case 'n':
-                nat_usage = optarg;
+                nat_usage = 1;
                 break;
         } /* switch */
     } /* -- while -- */

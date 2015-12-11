@@ -128,9 +128,10 @@ void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
 void sr_nat_delete_connection(struct sr_nat_mapping *map, struct sr_nat_connection *del_conn,
     struct sr_nat_connection *prev);
 
-int sr_nat_handle_external_conn(struct sr_nat *nat,
-  struct sr_nat_mapping *copy,
-  uint8_t* packet /* borrowed */,
-  unsigned int len);
+int sr_nat_handle_external_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
+  uint8_t* packet /* borrowed */, unsigned int len);
+
+int sr_nat_handle_internal_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,  
+  uint8_t* packet /* borrowed */, unsigned int len)
 
 #endif

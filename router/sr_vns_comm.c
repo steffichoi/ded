@@ -227,7 +227,7 @@ int sr_handle_hwinfo(struct sr_instance* sr, c_hwinfo* hwinfo)
         } /* -- switch -- */
     } /* -- for -- */
     if(sr->nat != NULL)
-        sr_nat__ext_ip(sr->nat,sr);
+        sr_nat_ext_ip(sr->nat,sr);
     printf("Router interfaces:\n");
     sr_print_if_list(sr);
 

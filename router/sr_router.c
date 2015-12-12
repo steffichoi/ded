@@ -190,67 +190,56 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
 }
 
 void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int len, struct sr_if * iface, const char * interface) {
-    assert(packet);
-    sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
-    sr_arp_hdr_t * arpHeader = (sr_arp_hdr_t *) (packet+14);
+    sr_arp_hdr_t* a_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+      if(ntohs(a_hdr->ar_op) == 2){
+        Debug("This is a reply\n");
+        if (ip_in_iface(sr,a_hdr->ar_tip)){
+          Debug("Mine, trying to cache\n");
+          struct sr_arpreq* req;
+          
+          if((req= sr_arpcache_insert(&sr->cache,a_hdr->ar_sha,a_hdr->ar_sip)) != NULL){
+            struct sr_packet* reply_pac = req->packets;
+            Debug("Request cached, releasing packets\n");
+            for (;reply_pac != NULL; reply_pac=reply_pac->next){
 
-    enum sr_arp_opcode request = arp_op_request;
-    enum sr_arp_opcode reply = arp_op_reply;
+              struct sr_if* if_list = sr_get_interface(sr,reply_pac->iface);
+              struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache,a_hdr->ar_sip);
 
-    struct sr_if *intface = sr_get_interface_from_ip(sr, htonl(arpHeader->ar_tip));
-
-    /* handle an arp request.*/
-    if (ntohs(arpHeader->ar_op) == request) {
-        /* found an ip->mac mapping. send a reply to the requester's MAC addr */
-        if (intface){
-          arpHeader->ar_op = ntohs(reply);
-          uint32_t temp = arpHeader->ar_sip;
-          arpHeader->ar_sip = arpHeader->ar_tip;
-          arpHeader->ar_tip = temp;
-          memcpy(arpHeader->ar_tha, arpHeader->ar_sha,6);
-          memcpy(arpHeader->ar_sha, iface->addr,6);
-
-          /*swapping outgoing and incoming addr*/
-          set_eth_addr(ethHeader, iface->addr, ethHeader->ether_shost);
-          sr_send_packet(sr,(uint8_t*)ethHeader,len,iface->name);
-        }
-    }
-    /* handle an arp reply */
-    else {
-      struct sr_packet *req_packet = NULL;
-      struct sr_arpreq *req = NULL;
-      pthread_mutex_lock(&(sr->cache.lock));
-
-      for (req = sr->cache.requests; req != NULL; req = req->next){
-        if(req->ip == arpHeader->ar_sip){
-          /* find the interface the packets should be sent out of */
-          struct sr_rt * rt = (struct sr_rt *)sr_find_routing_entry_int(sr, req->ip);
-          iface = sr_get_interface(sr, rt->interface);
-          if (rt) {
-            /* send all packets waiting on the request that was replied to */
-            for (req_packet = req->packets; req_packet != NULL; req_packet = req_packet->next) {
-              sr_ethernet_hdr_t * outEther = (sr_ethernet_hdr_t *)req_packet->buf;
-              memcpy(outEther->ether_shost, iface->addr,6);
-              memcpy(outEther->ether_dhost, ethHeader->ether_shost,6);
-
-              sr_ip_hdr_t * outIP = (sr_ip_hdr_t *)(req_packet->buf+14);
-              outIP->ip_ttl = outIP->ip_ttl-1;
-              outIP->ip_sum = 0;
-              outIP->ip_sum = cksum((uint8_t *)outIP,20);
-
-              sr_send_packet(sr,req_packet->buf,req_packet->len,iface->name);
+              sr_ethernet_hdr_t *e_reply = (sr_ethernet_hdr_t *)(reply_pac->buf);
+              int j;
+              for (j=0; j<ETHER_ADDR_LEN; j++){
+                e_reply->ether_shost[j] = if_list->addr[j];
+                e_reply->ether_dhost[j] = entry->mac[j];
+              }
+              /*if(sr->nat != NULL){
+                char* temp_iface;
+                if(reply_pac->iface[3]=='2')
+                  temp_iface="eth1";
+                else
+                  temp_iface="eth2";
+                Debug("%s\n",temp_iface);
+                if (sr_apply_nat(sr,reply_pac->buf,reply_pac->len,temp_iface)==1)
+                  continue;
+              }*/
+              print_hdrs(reply_pac->buf,reply_pac->len);
+              sr_send_packet(sr,reply_pac->buf,reply_pac->len,reply_pac->iface);
+              free(entry);
             }
-            sr_arpreq_destroy(&(sr->cache), req);
+            sr_arpreq_destroy(&sr->cache,req);
           }
-          /* interface not in list */
-          else if (!iface) {
-              reroute_packet(sr,packet,len,interface);
-          }
+        }
+        else{
+          Debug("Not for me, re-route!\n");
+          reroute_packet(sr,packet,len,interface);
         }
       }
-      pthread_mutex_unlock(&(sr->cache.lock));
-      sr_arpcache_insert(&(sr->cache),arpHeader->ar_sha,arpHeader->ar_sip);
-    }
+      else if(ntohs(a_hdr->ar_op) == 1){
+        Debug("This is a request\n");
+        handle_ARP_req(sr,packet,ret_pac,len,interface);
+      }
+      else{
+        fprintf(stderr, "ARP op-code %u isn't handled\n", ntohs(a_hdr->ar_op));
+      }
 }
 
 void reroute_packet(struct sr_instance* sr /* borrowed */,

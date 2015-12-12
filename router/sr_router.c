@@ -102,7 +102,7 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
-void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, const char *interface, struct sr_if * iface){
+void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len, const char *interface, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *tgt_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
@@ -445,7 +445,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
           Debug("Unsolicited syn, don't send\n");
           return 1;
         }
-        sr_send_packet(sr, packet, len, rt, iface);
+        sr_sendIP(sr, packet, len, rt, iface);
       }
     }           
   }

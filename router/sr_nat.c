@@ -81,7 +81,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     /* handle periodic tasks here */
     struct sr_nat_mapping *curr_map = nat->mappings;
     struct sr_nat_mapping *prev_map = NULL;
-    
+
     for(;curr_map != NULL; curr_map = curr_map->next){
       int time_passed = difftime(curtime,curr_map->time_wait);
 /*      Debug("Mapping time passed %d\n",time_passed);*/
@@ -281,19 +281,6 @@ struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
-}
-
-void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
-  pthread_mutex_lock(&(nat->lock));
-  struct sr_nat_mapping* curr_map = nat->mappings;
-  while(curr_map){
-    if((curr_map->type == copy->type) && (curr_map->ip_int == copy->ip_int) && (curr_map->aux_int == copy->aux_int)){
-      curr_map->time_wait = time(NULL);
-      break;
-    }
-    curr_map = curr_map->next;
-  }
-  pthread_mutex_unlock(&(nat->lock));
 }
 
 void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,

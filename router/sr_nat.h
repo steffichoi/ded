@@ -112,8 +112,6 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat,
 struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
   uint16_t aux_ext, sr_nat_mapping_type type);
 
-void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy);
-
 void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
   struct sr_nat_mapping *prev);
 
@@ -127,9 +125,6 @@ void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
 struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, 
   struct sr_nat_mapping *copy, uint32_t ip_src, uint16_t port_src, 
   uint32_t ip_dst, uint16_t port_dst);
-
-void sr_nat_refresh_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
-  struct sr_nat_connection *con_copy);
 
 void sr_nat_delete_connection(struct sr_nat_mapping *map, 
   struct sr_nat_connection *del_conn, struct sr_nat_connection *prev);

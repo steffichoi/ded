@@ -122,10 +122,6 @@ void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
   uint32_t ip_src, uint16_t port_src, uint32_t ip_dst, uint16_t port_dst, 
   uint16_t seq_no, int established, uint8_t *packet, unsigned int len);
 
-struct sr_nat_connection *sr_nat_lookup_conn(struct sr_nat *nat, 
-  struct sr_nat_mapping *copy, uint32_t ip_src, uint16_t port_src, 
-  uint32_t ip_dst, uint16_t port_dst);
-
 void sr_nat_delete_connection(struct sr_nat_mapping *map, 
   struct sr_nat_connection *del_conn, struct sr_nat_connection *prev);
 

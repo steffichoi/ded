@@ -74,7 +74,7 @@ void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, char *, str
 void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr_if*, const char*);
 void reroute_packet(struct sr_instance* ,uint8_t*, unsigned int, const char*);
 /* sending packets */
-void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, char *);
+void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, const char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
 
 /* nat application & tcp checksum */

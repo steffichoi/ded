@@ -332,6 +332,9 @@ void sr_natHandle(struct sr_instance* sr,
     struct sr_if *tgt_iface = sr_get_interface_from_ip(sr,ip_header->ip_dst);
     struct sr_rt * rt = NULL;
     struct sr_nat_mapping *map = NULL;
+    uint16_t aux_int;
+    sr_icmp_echo_hdr_t *icmpHeader;
+    sr_tcp_hdr_t *tcpHeader;
     /*struct sr_if *int_if = sr_get_interface(sr,"eth1");*/
     struct sr_if *ext_if = sr_get_interface(sr,"eth2");
 
@@ -358,17 +361,17 @@ void sr_natHandle(struct sr_instance* sr,
         type = nat_mapping_tcp;
         tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
         aux_int=ntohs(tcpHeader->source);
-        map = sr_nat_lookup_internal(sr->nat,ipHeader->ip_src,aux_int,type);
+        map = sr_nat_lookup_internal(sr->nat,ip_header->ip_src,aux_int,type);
         if (map == NULL) {
-          map = sr_nat_insert_mapping(sr->nat,pac_ip->ip_src,aux_int,type);
+          map = sr_nat_insert_mapping(sr->nat,ip_header->ip_src,aux_int,type);
         }
-        ipHeader->ip_src = map->ip_ext;
+        ip_header->ip_src = map->ip_ext;
         tcpHeader->source=ntohs(map->aux_ext);
         tcp_cksum(sr,packet,len);
         if (sr_nat_handle_internal_conn(sr->nat,map,packet,len) ==1){
           Debug("Something went wrong, dropping packet\n");
           free(map);
-          return 1;
+          return;
         }
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
@@ -387,18 +390,18 @@ void sr_natHandle(struct sr_instance* sr,
           
           icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
           aux_int = ntohs(icmpHeader->icmp_id);
-          map = sr_nat_lookup_internal(sr->nat,ntohl(ipHeader->ip_src),aux_int,type);
+          map = sr_nat_lookup_internal(sr->nat,ntohl(ip_header->ip_src),aux_int,type);
           if (map == NULL){
             Debug("No mapping available, making new one\n");
-            map = sr_nat_insert_mapping(sr->nat,ipHeader->ip_src,aux_int,type);
+            map = sr_nat_insert_mapping(sr->nat,ip_header->ip_src,aux_int,type);
           }
           Debug("Applying map\n");
           print_addr_ip_int(map->ip_ext);
           print_addr_ip_int(map->ip_int);
-          ipHeader->ip_src = map->ip_ext;
+          ip_header->ip_src = map->ip_ext;
 
-          rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-          if (ipHeader->ip_p == ip_protocol_icmp){
+          rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
+          if (ip_header->ip_p == ip_protocol_icmp){
             icmpHeader->icmp_id=htons(map->aux_ext);
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));

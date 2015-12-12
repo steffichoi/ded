@@ -421,12 +421,27 @@ void sr_natHandle(struct sr_instance* sr,
         fprintf(stderr,"Packet died\n");
         sr_sendICMP(sr, packet, iface, 11,0);
       }
-      /*else if (tgt_iface == NULL) {
-        fprintf(stderr,"NAT Not for us\n");
-      } */
       else if(ip_header->ip_p==6) { /*TCP*/
         fprintf(stderr,"FWD TCP from ext\n");
+        type = nat_mapping_tcp;
+        tcpHeader = (sr_tcp_hdr_t *) (packet+sizeof(struct sr_ethernet_hdr_t)+sizeof(struct sr_ip_hdr_t))
+        map = sr_nat_lookup_external(sr->nat,ntohs(tcpHeader->destination),type);
 
+        if (map == NULL) {
+          mapping = sr_nat_insert_mapping_unsol(sr->nat,ntohs(pac_tcp->tcp_dst_p),type);
+          if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+            Debug("Unsolicited syn, don't send\n");
+            return;
+          }
+        }
+        else {
+          tcpHeader->destination=ntohs(map->aux_int);
+          tcp_cksum(sr,packet,len);
+          if (sr_nat_handle_external_conn(sr->nat,map,packet,len) ==1){
+            Debug("Unsolicited syn, don't send\n");
+            return;
+          }
+        }
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         fprintf(stderr,"FWD ICMP from ext\n");

@@ -36,8 +36,6 @@ int sr_nat_init(struct sr_instance *sr, uint32_t icmp_to, uint32_t tcp_establish
   nat->tcp_establish_to=tcp_establish_to;
   nat->tcp_transitory_to=tcp_transitory_to;
   /* Initialize any variables here */
-  sr->nat = nat;
-
   return success;
 }
 
@@ -73,9 +71,8 @@ int sr_nat_destroy(struct sr_nat *nat) {  /* Destroys the nat (free memory) */
   pthread_mutexattr_destroy(&(nat->attr));
 }
 
-void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
-  struct sr_instance *sr = (struct sr_instance *)sr_ptr;
-  struct sr_nat *nat = sr->nat;
+void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
+  struct sr_nat *nat = nat_ptr;
   while (1) {
     sleep(1.0);
     

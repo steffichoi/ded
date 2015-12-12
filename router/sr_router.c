@@ -376,7 +376,7 @@ void sr_natHandle(struct sr_instance* sr,
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         fprintf(stderr,"FWD ICMP from int\n");
-        sr_icmp_echo_hdr_t * icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+        icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         incm_cksum = icmpHeader->icmp_sum;
         icmpHeader->icmp_sum = 0;
         calc_cksum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));

@@ -382,7 +382,6 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
         sr_send_packet(sr, packet, len, iface);
       }
     }
-    )
   }
   else{
     Debug("External packet\n");

@@ -103,7 +103,7 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
             if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
               Debug("Deleting established TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
-            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
+            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && curr_conn->state != nat_conn_unest){
               Debug("Deleting transitory TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){

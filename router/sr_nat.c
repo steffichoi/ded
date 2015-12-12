@@ -235,6 +235,49 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
   return copy;
 }
 
+struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
+  uint16_t aux_ext, sr_nat_mapping_type type ) {
+
+  pthread_mutex_lock(&(nat->lock));
+
+  uint32_t ip_int = htonl(0);
+  uint16_t aux_int= htons(1);
+  /* handle insert here, create a mapping, and then return a copy of it */
+  struct sr_nat_mapping *mapping = (struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
+
+  Debug("%d\n",aux_ext);
+    
+  /*Sets values*/
+  mapping->type = type;
+  mapping->ip_int = ip_int;
+  mapping->ip_ext = nat->ip_ext;
+  mapping->aux_int = aux_int;
+  mapping->aux_ext = aux_ext;
+  mapping->last_updated = time(NULL);
+  mapping->next=NULL;
+
+  mapping->conns = NULL; 
+
+  /*Adds to mappings*/
+  struct sr_nat_mapping *map_list = nat->mappings;
+  if (map_list != NULL){
+    while(map_list->next != NULL)
+      map_list=map_list->next;
+
+    map_list->next=mapping;
+  }
+  else{
+    nat->mappings = mapping;
+  }
+
+  /*Generates copy and returns it*/
+  struct sr_nat_mapping *copy = (struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
+  memcpy(copy,mapping,sizeof(struct sr_nat_mapping));
+
+  pthread_mutex_unlock(&(nat->lock));
+  return copy;
+}
+
 void sr_nat_refresh_mapping(struct sr_nat *nat, struct sr_nat_mapping *copy){
   pthread_mutex_lock(&(nat->lock));
   struct sr_nat_mapping* curr_map = nat->mappings;

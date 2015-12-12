@@ -157,7 +157,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
           sr_sendICMP(sr, packet,interface,3,3);
           return;
         }
-        print_hdr_tcp(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
         if (tcp_cksum(sr,packet,len) == 1){
           fprintf(stderr , "** Error: TCP checksum failed \n");
           return;

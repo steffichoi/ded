@@ -109,10 +109,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
-  uint16_t currentChecksum = (uint16_t) cksum(ipHeader, sizeof(sr_ip_hdr_t));
   ipHeader->ip_sum = 0;
 
-  if (incm_cksum != currentChecksum) {
+  if (incm_cksum != cksum(ipHeader, sizeof(sr_ip_hdr_t))) {
     fprintf(stderr, "Error: IP checksum failed \n");
     return;
   }
@@ -122,12 +121,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   ipHeader->ip_sum = incm_cksum;
   
   /* found an interface */
-  if (next_iface && currentChecksum == incm_cksum){
-    if(ipHeader->ip_p==6){ /*TCP*/
+  if (next_iface){
+    if(ipHeader->ip_p == 6 || ipHeader->ip_p == 17){ /* TCP/UDP */
         sr_sendICMP(sr, packet, interface, 3, 3);
-    } 
-    else if (ipHeader->ip_p==17){ /*UDP*/
-      sr_sendICMP(sr, packet, interface, 3, 3);
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
       sr_icmp_hdr_t* icmpHeader = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
@@ -139,11 +135,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       }
     }
   } 
-  else if (ipHeader->ip_ttl == 0){   /* ttl ded */
-    sr_sendICMP(sr, packet, interface, 11, 0);
-  }
+  
   /* packet not for me */
-  else if (currentChecksum == incm_cksum){
+  else {
     /* check cache for ip->mac mapping for next hop */
     struct sr_arpentry *entry;
     entry = sr_arpcache_lookup(&sr->cache, ipHeader->ip_dst);
@@ -162,13 +156,15 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       free(entry);
       ip_packet = NULL;
     }
-  }
-  else {
-    struct sr_rt* rt;
-    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-    if (rt){
-      sr_sendIP(sr, packet, len, rt, interface);
+    else if (rt) { /* send an arp request to find out what the next hop should be */
+      struct sr_arpreq *req;
+      sr_arpcache_insert(&(sr->cache), ethHeader->ether_shost, ipHeader->ip_src);
+      req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
+      handle_arpreq(sr, req);
     } 
+    else if (ipHeader->ip_ttl == 0){   /* ttl ded */
+      sr_sendICMP(sr, packet, interface, 11, 0);
+    }
     else {
       sr_sendICMP(sr, packet, interface, 3, 0);
     }

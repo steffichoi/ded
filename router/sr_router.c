@@ -120,7 +120,12 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   
   /*Creates reverse packet*/
   sr_ip_hdr_t *ip_ret = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
-  reverse_ip(sr,ip_ret);
+  
+  uint32_t temp_dst = ip_ret->ip_dst;
+  ip_ret->ip_dst=ip_hdr->ip_src;
+  ip_ret->ip_src=temp_dst;
+  ip_ret->ip_ttl--;
+  ip_ret->ip_sum = 0;
 
   /*Packet is too old, time to die*/
   if(ip_ret->ip_ttl == 0){
@@ -130,7 +135,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   else if (!sr_get_interface_from_ip(sr,ip_hdr->ip_dst) ||
    (sr->nat != NULL && interface[3]=='2')){
       Debug("Not meant for me, re-route\n");
-      if (!sr_get_interface_from_ips(sr,ip_ret->ip_src) &&
+      if (!sr_get_interface_from_ip(sr,ip_ret->ip_src) &&
         !(sr->nat != NULL && interface[3]=='2')){
         Debug("No route for packet, send ICMP back\n");
         sr_sendICMP(sr, packet,interface,3,0);

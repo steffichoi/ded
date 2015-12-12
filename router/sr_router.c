@@ -253,7 +253,6 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
                                                len, rt->interface); 
     handle_arpreq(sr,req);
     }
-  }
   pthread_mutex_unlock(&(sr->cache.lock));
 }
 

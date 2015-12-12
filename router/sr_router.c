@@ -368,6 +368,7 @@ void sr_natHandle(struct sr_instance* sr,
         }
         else if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0){
           fprintf(stderr,"\t intfwd icmp id %d\n", icmp_header->icmp_id);
+          type = nat_mapping_icmp;
           map = sr_nat_lookup_internal(sr->nat,
                                       ntohl(ip_header->ip_src),
                                       icmp_header->icmp_id,
@@ -414,6 +415,7 @@ void sr_natHandle(struct sr_instance* sr,
           fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
         }
         else if (icmp_header->icmp_type == 0 && icmp_header->icmp_code == 0){
+          type = nat_mapping_icmp;
           fprintf(stderr,"\t extfwd icmp id %d\n", icmp_header->icmp_id);
           map = sr_nat_lookup_external(sr->nat,
                                        icmp_header->icmp_id,

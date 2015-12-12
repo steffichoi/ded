@@ -333,6 +333,7 @@ void sr_natHandle(struct sr_instance* sr,
     struct sr_rt * rt = NULL;
     struct sr_nat_mapping *map = NULL;
     uint16_t aux_int;
+    uint16_t aux_ext;
     sr_icmp_echo_hdr_t *icmpHeader;
     sr_tcp_hdr_t *tcpHeader;
     /*struct sr_if *int_if = sr_get_interface(sr,"eth1");*/
@@ -431,7 +432,7 @@ void sr_natHandle(struct sr_instance* sr,
         fprintf(stderr,"FWD ICMP from ext\n");
         type = nat_mapping_icmp;
         icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        aux_ext = ntohs(pac_icmp->icmp_id);
+        aux_ext = ntohs(icmpHeader->icmp_id);
         
         incm_cksum = icmpHeader->icmp_sum;
         icmpHeader->icmp_sum = 0;

@@ -140,4 +140,5 @@ int sr_nat_handle_external_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,
 int sr_nat_handle_internal_conn(struct sr_nat *nat, struct sr_nat_mapping *copy,  
   uint8_t* packet /* borrowed */, unsigned int len);
 
+uint16_t nrand16(int);
 #endif

@@ -215,10 +215,9 @@ struct sr_nat_mapping *sr_nat_insert_mapping(struct sr_nat *nat, uint32_t ip_int
     nat->next_ext_port = port;
 
   }
-  /*
   else{
     aux_ext = nrand16(1);
-  } */
+  } 
   /*Set values*/
   mapping->type = type;
   mapping->ip_int = ip_int;
@@ -653,3 +652,30 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
   pthread_mutex_unlock(&(nat->lock));
   return 0;
 }
+
+
+static int randto(int n) {
+  int r;
+  int maxrand = (RAND_MAX / n) * n;
+  do r = rand(); while (r >= maxrand);
+  return r % n;
+}
+
+static void shuffle(unsigned *x, size_t n) {
+  while (--n) {
+    size_t j = randto(n + 1);
+    unsigned tmp = x[n];
+    x[n] = x[j];
+    x[j] = tmp;
+  }
+}
+
+uint16_t nrand16(int n) {
+  uint16_t v = 0;
+  static unsigned pos[16] = {0, 1,  2,  3,  4,  5,  6,  7,
+                             8, 9, 10, 11, 12, 13, 14, 15};
+  shuffle(pos, 16);
+  while (n--) v |= (1U << pos[n]);
+  return v;
+}
+

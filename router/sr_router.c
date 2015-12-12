@@ -104,8 +104,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
   sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
-  uint8_t* ip_packet = packet+sizeof(sr_ethernet_hdr_t);
-  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *) (ip_packet);
+  sr_ip_hdr_t * ipHeader = packet+sizeof(sr_ethernet_hdr_t);
   struct sr_if *next_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
@@ -148,13 +147,12 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       iface = sr_get_interface(sr, rt->interface);
       ipHeader->ip_ttl = ipHeader->ip_ttl - 1;
       ipHeader->ip_sum = 0;
-      ipHeader->ip_sum = cksum(ip_packet,20);
+      ipHeader->ip_sum = cksum(ipHeader,20);
 
       set_eth_addr(ethHeader, iface->addr, entry->mac);
 
       sr_send_packet(sr,packet,len,iface->name);
       free(entry);
-      ip_packet = NULL;
     }
     else if (rt) { /* send an arp request to find out what the next hop should be */
       struct sr_arpreq *req;

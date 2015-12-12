@@ -22,7 +22,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
- #include <stdbool.h>
+#include <stdbool.h>
 #include <pwd.h>
 #include <sys/types.h>
 
@@ -194,7 +194,7 @@ int main(int argc, char **argv)
     }else{
         sr.nat=NULL;
     }
-    
+
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);
 

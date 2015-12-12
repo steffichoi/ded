@@ -102,7 +102,7 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
-void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, struct sr_if * iface){
+void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *tgt_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
@@ -116,10 +116,10 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       fprintf(stderr,"For us\n");
       if(ipHeader->ip_p==6){ /*TCP*/
           fprintf(stderr,"TCP\n");
-          sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
+          sr_sendICMP(sr, packet, interface, 3, 3);
       } else if (ipHeader->ip_p==17){ /*UDP*/
           fprintf(stderr,"UDP\n");
-          sr_sendICMP(sr, packet, len, 3, 3, ipHeader->ip_dst);
+          sr_sendICMP(sr, packet, interface, 3, 3);
       } else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
           fprintf(stderr,"ICMP\n");
           sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
@@ -132,12 +132,12 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
           if (incm_cksum != calc_cksum){
               fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
           } else if (type == 8 && code == 0) {
-              sr_sendICMP(sr, packet, len, 0, 0, ipHeader->ip_dst);
+              sr_sendICMP(sr, packet, interface, 0, 0);
           }
       }
   } else if (ipHeader->ip_ttl <= 1){
       fprintf(stderr,"Packet died\n");
-      sr_sendICMP(sr, packet, len, 11, 0,0);
+      sr_sendICMP(sr, packet, interface, 11, 0);
   } else {
       fprintf(stderr,"Not for us\n");
       struct sr_rt* rt;
@@ -145,7 +145,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       if (rt){
           sendIP(sr,packet,len,rt);
       } else {
-          sr_sendICMP(sr, packet, len, 3, 0, 0);
+          sr_sendICMP(sr, packet, interface, 3, 0);
       }
   }
 }

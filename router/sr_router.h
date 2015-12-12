@@ -70,7 +70,7 @@ int sr_read_from_server(struct sr_instance* );
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance*);
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
-void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, char *, struct sr_if *);
+void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, const char *, struct sr_if *);
 void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr_if*, const char*);
 void reroute_packet(struct sr_instance* ,uint8_t*, unsigned int, const char*);
 /* sending packets */

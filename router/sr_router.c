@@ -271,9 +271,6 @@ void reroute_packet(struct sr_instance* sr /* borrowed */,
         break;
       }
     }
-/*    print_hdrs(packet,len);*/
-    assert(rt);
-
     struct sr_if* out_iface = sr_get_interface(sr,rt->interface);
     assert(out_iface);
     unsigned char* iface_addr = out_iface->addr;

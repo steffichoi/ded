@@ -41,8 +41,6 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 #include "sr_nat.h"
-/*DEBUG*/
-#include "sr_utils.h"
 
 #include "sha1.h"
 #include "vnscommand.h"
@@ -228,10 +226,8 @@ int sr_handle_hwinfo(struct sr_instance* sr, c_hwinfo* hwinfo)
                 printf (" %d \n",ntohl(hwinfo->mHWInfo[i].mKey));
         } /* -- switch -- */
     } /* -- for -- */
-    if(sr->nat){
-        sr_nat_ext_ip(sr->nat,sr);
-    }
-
+    if(sr->nat != NULL)
+        sr_nat_set_ext_ip(sr->nat,sr);
     printf("Router interfaces:\n");
     sr_print_if_list(sr);
 
@@ -570,9 +566,6 @@ int sr_send_packet(struct sr_instance* sr /* borrowed */,
                          unsigned int len,
                          const char* iface /* borrowed */)
 {
-/*DEBUG printf("Sending Packet:\n");*/
-/*DEBUG print_hdrs(buf,len);*/
-
     c_packet_header *sr_pkt;
     unsigned int total_len =  len + (sizeof(c_packet_header));
 
@@ -611,6 +604,7 @@ int sr_send_packet(struct sr_instance* sr /* borrowed */,
         free(sr_pkt);
         return -1;
     }
+
     free(sr_pkt);
 
     return 0;

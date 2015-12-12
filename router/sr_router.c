@@ -142,12 +142,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len
         /*sr_sendICMP(sr, packet, interface, 0, 0);*/
         sr_sendIP(sr, packet, len, rt, interface);
       }
-      else if (sr->nat && ethertype(packet)==ethertype_ip) {
-        printf("handling nat\n");
-        if (sr_handle_nat(sr, packet, len, interface) == 1) {
-          return;
-        }
-      }
     }
   } 
   else if (ipHeader->ip_ttl <= 1){
@@ -170,15 +164,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len
         }
       }
       else {
-        if (!sr->nat){
-          sr_sendIP(sr, packet, len, rt, interface);
-        }
-        else if (sr->nat && ethertype(packet)==ethertype_ip){
-          printf("handling nat\n");
-          if (sr_handle_nat(sr, packet, len, interface) == 1){
-            return;
-          }
-        }
+        sr_sendIP(sr, packet, len, rt, interface);
       }
     } 
     else {
@@ -481,143 +467,6 @@ void sr_natHandle(struct sr_instance* sr,
       } 
     }
 }/* end natHandleIPPacket */
-
-int sr_handle_nat(struct sr_instance* sr /* borrowed */,
-                  uint8_t* packet /* borrowed */ ,
-                  unsigned int len,
-                  const char* iface /* borrowed */)
-{
-  if(sr->nat == NULL){
-    return 0;
-  }
-  print_hdr_ip(packet+ sizeof(struct sr_ethernet_hdr));
-  sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
-  struct sr_rt* rt;
-
-  struct sr_nat_mapping *mapping;
-  if(strcmp(iface,"eth1")==0){
-    Debug("Internal packet\n");
-    uint16_t aux_int;
-    sr_icmp_echo_hdr_t *icmpHeader;
-    sr_tcp_hdr_t *tcpHeader;
-
-    /*Internal mapping lookup and packet translating*/
-    sr_nat_mapping_type type;
-    
-    if (ipHeader->ip_p == ip_protocol_icmp){
-      Debug("ICMP Packet\n");
-      type = nat_mapping_icmp;
-      icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-      aux_int = ntohs(icmpHeader->icmp_id);
-      mapping = sr_nat_lookup_internal(sr->nat,ntohl(ipHeader->ip_src),aux_int,type);
-    }
-    else if (ipHeader->ip_p == ip_protocol_tcp){
-      Debug("TCP Packet\n");
-      type = nat_mapping_tcp;
-      tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-      aux_int=ntohs(tcpHeader->source);
-      mapping = sr_nat_lookup_internal(sr->nat,ipHeader->ip_src,aux_int,type);
-    }
-    
-    if (mapping == NULL){
-      Debug("No mapping available, making new one\n");
-      mapping = sr_nat_insert_mapping(sr->nat,ipHeader->ip_src,aux_int,type);
-    }
-    Debug("Applying map\n");
-    print_addr_ip_int(mapping->ip_ext);
-    print_addr_ip_int(mapping->ip_int);
-    ipHeader->ip_src=mapping->ip_ext;
-
-    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-    if (ipHeader->ip_p == ip_protocol_icmp){
-      icmpHeader->icmp_id=htons(mapping->aux_ext);
-      icmpHeader->icmp_sum=0;
-      icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
-      sr_sendIP(sr, packet, len, rt, iface);
-    }
-    else if (ipHeader->ip_p == ip_protocol_tcp){
-      tcpHeader->source=ntohs(mapping->aux_ext);
-      tcp_cksum(sr,packet,len);
-      if (sr_nat_handle_internal_conn(sr->nat,mapping,packet,len) ==1){
-        Debug("Something went wrong, dropping packet\n");
-        free(mapping);
-        return 1;
-      }
-      else {
-        sr_sendIP(sr, packet, len, rt, iface);
-      }
-    }
-  }
-  else{
-    Debug("External packet\n");
-    uint16_t aux_ext;
-    sr_icmp_echo_hdr_t *icmpHeader;
-    sr_tcp_hdr_t *tcpHeader;
-    sr_nat_mapping_type type;
-
-    /*External mapping lookup and packet translating*/
-    if (ipHeader->ip_p == ip_protocol_icmp){
-      Debug("ICMP Packet\n");
-      type = nat_mapping_icmp;
-      icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-      aux_ext = ntohs(icmpHeader->icmp_id);
-      Debug("%d\n",aux_ext);
-      mapping = sr_nat_lookup_external(sr->nat,aux_ext,type);
-    }
-    else if (ipHeader->ip_p == ip_protocol_tcp){
-      Debug("TCP Packet\n");
-      type = nat_mapping_tcp;
-      tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-      mapping = sr_nat_lookup_external(sr->nat,ntohs(tcpHeader->destination),type);
-    }
-
-    if (mapping == NULL){
-      if (ipHeader->ip_p == ip_protocol_tcp){
-        Debug("Making wildcard mapping to handle unsolicited syns\n");
-        mapping = sr_nat_insert_mapping_unsol(sr->nat,ntohs(tcpHeader->destination),type);
-        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
-          Debug("Unsolicited syn, don't send\n");
-          return 1;
-        }
-        else {
-          rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-          sr_sendIP(sr, packet, len, rt, iface);
-        }
-      }else{
-        Debug("No mapping available\n");
-        free(mapping);
-        return 1;
-      }
-    }
-    else{
-      Debug("Mapping found, applying map\n");
-      ipHeader->ip_dst=mapping->ip_int;
-      rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-
-      if (ipHeader->ip_p == ip_protocol_icmp){
-        icmpHeader->icmp_id=ntohs(mapping->aux_int);
-        icmpHeader->icmp_sum=0;
-        icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
-        sr_sendIP(sr, packet, len, rt, iface);
-      }
-      else if (ipHeader->ip_p == ip_protocol_tcp){
-        tcpHeader->destination=ntohs(mapping->aux_int);
-        tcp_cksum(sr,packet,len);
-      
-        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
-          Debug("Unsolicited syn, don't send\n");
-          return 1;
-        }
-        sr_sendIP(sr, packet, len, rt, iface);
-      }
-    }           
-  }
-  ipHeader->ip_sum=0;
-  ipHeader->ip_sum = cksum(ipHeader,sizeof(sr_ip_hdr_t));
-  if (mapping != NULL)
-    free(mapping);
-  return 0;
-}
 
 int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   

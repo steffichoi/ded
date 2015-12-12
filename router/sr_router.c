@@ -115,13 +115,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   } 
   else if (tgt_iface){
     fprintf(stderr,"For us\n");
-    if(ipHeader->ip_p==6){ /*TCP*/
-      fprintf(stderr,"TCP\n");
+    if(ipHeader->ip_p==6 || ipHeader->ip_p==17){ /* TCP/UDP */
+      fprintf(stderr,"TCP/UDP\n");
       sr_sendICMP(sr, packet, interface, 3, 3);
-    } 
-    else if (ipHeader->ip_p==17){ /*UDP*/
-        fprintf(stderr,"UDP\n");
-        sr_sendICMP(sr, packet, interface, 3, 3);
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
       fprintf(stderr,"ICMP\n");
@@ -161,6 +157,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
           fprintf(stderr , "** Error: TCP checksum failed \n");
           return;
         }
+      }
+      else {
+        sr_sendIP(sr, packet, len, rt, interface);
       }
     } 
     else {

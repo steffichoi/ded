@@ -181,13 +181,13 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
     sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t * arpHeader = (sr_arp_hdr_t *) (packet+14);
 
-    struct sr_if *intface = sr_get_interface_from_ip(sr, htonl(arpHeader->ar_tip));
+    struct sr_if *req_iface = sr_get_interface_from_ip(sr, htonl(arpHeader->ar_tip));
 
     /* handle an arp request.*/
     if (ntohs(arpHeader->ar_op) == arp_op_request) {
         /* found an ip->mac mapping. send a reply to the requester's MAC addr */
         if (intface){
-          arpHeader->ar_op = ntohs(reply);
+          arpHeader->ar_op = ntohs(arp_op_reply);
           uint32_t temp = arpHeader->ar_sip;
           arpHeader->ar_sip = arpHeader->ar_tip;
           arpHeader->ar_tip = temp;
@@ -204,13 +204,13 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
       struct sr_packet *req_packet = NULL;
       struct sr_arpreq *req = NULL;
       pthread_mutex_lock(&(sr->cache.lock));
-      req = sr_arpcache_insert(&(sr->cache), arp_header->ar_sha, arp_header->ar_sip);
+      req = sr_arpcache_insert(&(sr->cache), arpHeader->ar_sha, arpHeader->ar_sip);
       if(req){
           fprintf(stderr,"Clearing queue\n");
           for (req_packet = req->packets; req_packet != NULL; req_packet = req_packet->next){
               sr_ethernet_hdr_t * outETH = (sr_ethernet_hdr_t *)(req_packet->buf);
-              memcpy(outETH->ether_shost, rec_iface->addr,6);
-              memcpy(outETH->ether_dhost, arp_header->ar_sha,6);
+              memcpy(outETH->ether_shost, req_iface->addr,6);
+              memcpy(outETH->ether_dhost, arpHeader->ar_sha,6);
               sr_ip_hdr_t * outIP = (sr_ip_hdr_t *)(req_packet->buf+14);
               outIP->ip_ttl = outIP->ip_ttl-1;
               outIP->ip_sum = 0;

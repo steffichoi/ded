@@ -355,35 +355,54 @@ void sr_natHandle(struct sr_instance* sr,
       } 
       else if(ip_header->ip_p==6) { /*TCP*/
         fprintf(stderr,"FWD TCP from int\n");
+        type = nat_mapping_tcp;
+        tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        aux_int=ntohs(tcpHeader->source);
+        map = sr_nat_lookup_internal(sr->nat,ipHeader->ip_src,aux_int,type);
+        if (map == NULL) {
+          map = sr_nat_insert_mapping(sr->nat,pac_ip->ip_src,aux_int,type);
+        }
+        ipHeader->ip_src = map->ip_ext;
+        tcpHeader->source=ntohs(map->aux_ext);
+        tcp_cksum(sr,packet,len);
+        if (sr_nat_handle_internal_conn(sr->nat,map,packet,len) ==1){
+          Debug("Something went wrong, dropping packet\n");
+          free(map);
+          return 1;
+        }
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         fprintf(stderr,"FWD ICMP from int\n");
-        sr_icmp_echo_hdr_t * icmp_header = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        incm_cksum = icmp_header->icmp_sum;
-        icmp_header->icmp_sum = 0;
-        calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-        icmp_header->icmp_sum = incm_cksum;
+        sr_icmp_echo_hdr_t * icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+        incm_cksum = icmpHeader->icmp_sum;
+        icmpHeader->icmp_sum = 0;
+        calc_cksum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+        icmpHeader->icmp_sum = incm_cksum;
         if (incm_cksum != calc_cksum){
           fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
         }
-        else if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0){
-          fprintf(stderr,"\t intfwd icmp id %d\n", icmp_header->icmp_id);
+        else if (icmpHeader->icmp_type == 8 && icmpHeader->icmp_code == 0){
+          fprintf(stderr,"\t intfwd icmp id %d\n", icmpHeader->icmp_id);
           type = nat_mapping_icmp;
-          map = sr_nat_lookup_internal(sr->nat,
-                                      ntohl(ip_header->ip_src),
-                                      icmp_header->icmp_id,
-                                      type);
+          
+          icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+          aux_int = ntohs(icmpHeader->icmp_id);
+          map = sr_nat_lookup_internal(sr->nat,ntohl(ipHeader->ip_src),aux_int,type);
           if (map == NULL){
-              map = sr_nat_insert_mapping(sr->nat,
-                                      ntohl(ip_header->ip_src),
-                                      icmp_header->icmp_id,
-                                      type);
-              map->ip_ext = ip_header->ip_dst;
+            Debug("No mapping available, making new one\n");
+            map = sr_nat_insert_mapping(sr->nat,ipHeader->ip_src,aux_int,type);
           }
-          fprintf(stderr,"\t intfwd icmp ext id %d\n", map->aux_ext);
-          icmp_header->icmp_id = map->aux_ext;
-          icmp_header->icmp_sum = 0;
-          icmp_header->icmp_sum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+          Debug("Applying map\n");
+          print_addr_ip_int(map->ip_ext);
+          print_addr_ip_int(map->ip_int);
+          ipHeader->ip_src = map->ip_ext;
+
+          rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
+          if (ipHeader->ip_p == ip_protocol_icmp){
+            icmpHeader->icmp_id=htons(map->aux_ext);
+            icmpHeader->icmp_sum=0;
+            icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
+          }
           
           ip_header->ip_src = ext_if->ip;
           ip_header->ip_sum = 0;
@@ -513,7 +532,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
     sr_tcp_hdr_t *tcpHeader;
     sr_nat_mapping_type type;
 
-    /*Internal mapping lookup and packet translating*/
+    /*External mapping lookup and packet translating*/
     if (ipHeader->ip_p == ip_protocol_icmp){
       Debug("ICMP Packet\n");
       type = nat_mapping_icmp;

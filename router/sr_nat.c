@@ -36,6 +36,7 @@ int sr_nat_init(struct sr_instance *sr, uint32_t icmp_to, uint32_t tcp_establish
   nat->tcp_establish_to=tcp_establish_to;
   nat->tcp_transitory_to=tcp_transitory_to;
   /* Initialize any variables here */
+  sr->nat = nat;
 
   return success;
 }

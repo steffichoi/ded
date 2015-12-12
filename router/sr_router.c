@@ -320,9 +320,9 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
                   unsigned int len,
                   const char* iface /* borrowed */)
 {
-  if(sr->nat == NULL)
+  if(sr->nat == NULL){
     return 0;
-  Debug("Applying NAT\n");
+  }
   print_hdr_ip(packet+ sizeof(struct sr_ethernet_hdr));
   sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
 

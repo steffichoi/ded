@@ -133,16 +133,23 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
 
   pthread_mutex_lock(&(nat->lock));
 
-  /* handle lookup here, malloc and assign to copy */
-  struct sr_nat_mapping *copy = NULL;
-  struct sr_nat_mapping* curr_map = nat->mappings;
-  while(curr_map){
-    if(curr_map->aux_ext == aux_ext && curr_map->type == type){
-      copy = malloc(sizeof(struct sr_nat_mapping));
-      memcpy(copy, curr_map, sizeof(struct sr_nat_mapping));
-    }
-    curr_map = curr_map->next;
+  Debug("External lookup %d\n",aux_ext);
+   /* handle lookup here, malloc and assign to copy. */
+  struct sr_nat_mapping *search_mapping = nat->mappings;
+  for(;search_mapping != NULL; search_mapping = search_mapping->next){
+    if (search_mapping->type == type && search_mapping->aux_ext == aux_ext)
+      break;
   }
+
+  if(search_mapping==NULL){
+    pthread_mutex_unlock(&(nat->lock));
+    return NULL;    /*Not found*/
+  }
+  else
+    search_mapping->last_updated = time(NULL);
+
+  struct sr_nat_mapping *copy =(struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
+  memcpy(copy,search_mapping,sizeof (struct sr_nat_mapping));
 
   pthread_mutex_unlock(&(nat->lock));
   return copy;
@@ -154,17 +161,25 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
   uint32_t ip_int, uint16_t aux_int, sr_nat_mapping_type type ){
 
   pthread_mutex_lock(&(nat->lock));
-
+  print_addr_ip_int(ip_int);
   /* handle lookup here, malloc and assign to copy. */
-  struct sr_nat_mapping *copy = NULL;
-  struct sr_nat_mapping* curr_map = nat->mappings;
-  while(curr_map) {
-    if((curr_map->ip_int == ip_int) && (curr_map->aux_int == aux_int) && (curr_map->type == type)) {
-      copy = malloc(sizeof(struct sr_nat_mapping));
-      memcpy(copy, curr_map, sizeof(struct sr_nat_mapping));
-    }
-    curr_map = curr_map->next;
+  struct sr_nat_mapping *search_mapping = nat->mappings;
+  for(;search_mapping != NULL; search_mapping = search_mapping->next){
+    if (search_mapping->type == type && search_mapping->ip_int == ip_int
+      && search_mapping->aux_int == aux_int)
+      break;
   }
+  
+  if(!search_mappingL){
+    pthread_mutex_unlock(&(nat->lock));
+    return NULL;    /*Not found*/
+  }
+  else {
+    search_mapping->last_updated = time(NULL); 
+  }
+  struct sr_nat_mapping *copy =(struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
+  memcpy(copy,search_mapping,sizeof (struct sr_nat_mapping));
+
   pthread_mutex_unlock(&(nat->lock));
   return copy;
 }

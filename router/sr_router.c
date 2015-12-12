@@ -337,13 +337,13 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==6) { /*TCP*/
         type = nat_mapping_tcp;
         tcpHeader = (sr_tcp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        aux_int=ntohs(tcpHeader->source);
+        aux_int = tcpHeader->source;
         map = sr_nat_lookup_internal(sr->nat,ip_header->ip_src,aux_int,type);
         if (map == NULL) {
           map = sr_nat_insert_mapping(sr->nat,ip_header->ip_src,aux_int,type);
         }
         ip_header->ip_src = map->ip_ext;
-        tcpHeader->source=ntohs(map->aux_ext);
+        tcpHeader->source= map->aux_ext;
         tcp_cksum(sr,packet,len);
         if (sr_nat_handle_internal_conn(sr->nat,map,packet,len) ==1){
           Debug("Something went wrong, dropping packet\n");
@@ -407,7 +407,7 @@ void sr_natHandle(struct sr_instance* sr,
           }
         }
         else {
-          tcpHeader->destination=ntohs(map->aux_int);
+          tcpHeader->destination= map->aux_int;
           tcp_cksum(sr,packet,len);
           if (sr_nat_handle_external_conn(sr->nat,map,packet,len) ==1){
             Debug("Unsolicited syn, don't send\n");
@@ -418,7 +418,7 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         type = nat_mapping_icmp;
         icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        aux_ext = ntohs(icmpHeader->icmp_id);
+        aux_ext = icmpHeader->icmp_id;
         
         incm_cksum = icmpHeader->icmp_sum;
         icmpHeader->icmp_sum = 0;

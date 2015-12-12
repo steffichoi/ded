@@ -40,6 +40,7 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
+#include "sr_nat.h"
 /*DEBUG*/
 #include "sr_utils.h"
 

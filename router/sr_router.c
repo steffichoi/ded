@@ -113,7 +113,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   if (calc_cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
   } 
-  else if (tgt_iface != NULL){
+  else if (tgt_iface){
     fprintf(stderr,"For us\n");
     if(ipHeader->ip_p==6){ /*TCP*/
       fprintf(stderr,"TCP\n");
@@ -138,6 +138,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       else if (type == 8 && code == 0) {
         sr_sendICMP(sr, packet, interface, 0, 0);
       }
+      else if (sr->nat) {
+        /* reroute!! */
+      }
     }
   } 
   else if (ipHeader->ip_ttl <= 1){
@@ -149,11 +152,22 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     struct sr_rt* rt;
     rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
     if (rt){
-      sr_sendIP(sr,packet,len,rt, interface);
+      if (ipHeader->ip_p==6){  /* TCP */
+        if (!sr->nat){
+          sr_sendICMP(sr, packet,interface,3,3);
+          return;
+        }
+        print_hdr_tcp(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        if (tcp_cksum(sr,packet,len) == 1){
+          fprintf(stderr , "** Error: TCP checksum failed \n");
+          return;
+        }
+      }
     } 
     else {
       sr_sendICMP(sr, packet, interface, 3, 0);
     }
+    /* reroute */
   }
 }
 
@@ -193,8 +207,8 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
         if(req->ip == arpHeader->ar_sip){
           /* find the interface the packets should be sent out of */
           struct sr_rt * rt = (struct sr_rt *)sr_find_routing_entry_int(sr, req->ip);
+          iface = sr_get_interface(sr, rt->interface);
           if (rt) {
-            iface = sr_get_interface(sr, rt->interface);
             /* send all packets waiting on the request that was replied to */
             for (req_packet = req->packets; req_packet != NULL; req_packet = req_packet->next) {
               sr_ethernet_hdr_t * outEther = (sr_ethernet_hdr_t *)req_packet->buf;
@@ -210,11 +224,111 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
             }
             sr_arpreq_destroy(&(sr->cache), req);
           }
-          break;
+          /* interface not in list */
+          else if (!iface) {
+              /* reroute!1 */
+          }
         }
       }
       pthread_mutex_unlock(&(sr->cache.lock));
       sr_arpcache_insert(&(sr->cache),arpHeader->ar_sha,arpHeader->ar_sip);
+    }
+}
+
+void reroute_packet(struct sr_instance* sr /* borrowed */,
+                         uint8_t* packet /* borrowed */ ,
+                         unsigned int len,
+                         const char* iface /* borrowed */)
+{
+    /* REQUIRES */
+    assert(sr);
+    assert(packet);
+    assert(iface);
+
+    if (sr->nat && ethertype(packet)==ethertype_ip){
+      Debug("%s\n",iface);
+      if (sr_handle_nat(sr,packet,len,iface)==1)
+        return;
+    }
+    sr_ethernet_hdr_t *ethHeader = (sr_ethernet_hdr_t *)(packet);    
+
+    uint32_t ip;
+    uint16_t ethtype = ethertype(packet);
+    if(ethtype == ethertype_ip){
+      ip = ((sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr)))->ip_dst;
+      ethHeader->ether_type = ntohs(ethertype_arp);
+    }else if (ethtype == ethertype_arp){
+      ip = ((sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)))->ar_tip;
+    }else{
+      fprintf(stderr, "Unhandled Ethernet type, cannot route %d\n", ethtype);
+      return;
+    }
+
+/*    print_addr_ip_int(ip);*/
+
+    struct sr_rt* rt = sr->routing_table;
+    for(;rt != NULL; rt=rt->next){
+      if((rt->gw).s_addr == ip){
+        break;
+      }
+    }
+/*    print_hdrs(packet,len);*/
+    assert(rt);
+
+    struct sr_if* out_iface = sr_get_interface(sr,rt->interface);
+    assert(out_iface);
+    unsigned char* iface_addr = out_iface->addr;
+    
+    if(ethtype == ethertype_ip){
+      sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
+      ip_hdr->ip_ttl--;
+      ip_hdr->ip_sum=0;
+      ip_hdr->ip_sum=cksum(ip_hdr,sizeof(sr_ip_hdr_t));
+    }
+
+    /*Check cache for mac*/
+    struct sr_arpentry* arp_loc;
+    if ((arp_loc=sr_arpcache_lookup(&(sr->cache),ip)) == NULL){
+      /*Send arp request out of interface if no mac*/
+      Debug("Caching Packet\n");
+      print_hdrs(packet,len);
+      sr_arpcache_queuereq(&(sr->cache),ip,packet,len,out_iface->name);
+
+      sr_arp_hdr_t* arpHeader = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)); 
+     
+      int i;
+      for(i=0;i<ETHER_ADDR_LEN;i++){
+        ethHeader->ether_dhost[i] =0xFF;
+        ethHeader->ether_shost[i] = iface_addr[i];
+        arpHeader->ar_sha[i] = iface_addr[i];
+        arpHeader->ar_tha[i]= 0x0000;
+      }
+      /* Set ARP header */
+      arpHeader->ar_hrd=ntohs(0x0001);
+      arpHeader->ar_pro=ntohs(0x0800);
+      arpHeader->ar_hln=0x0006;
+      arpHeader->ar_pln=0x0004;
+      arpHeader->ar_op=ntohs(0x0001);
+      arpHeader->ar_sip=out_iface->ip;
+      arpHeader->ar_tip=ip;
+
+      Debug("Sending ARP request\n");
+      print_hdrs(packet,len);
+      sr_send_packet(sr,packet,len,out_iface->name);
+      /*free(req);*/
+    }
+    else{
+      Debug("ARP Cache found, re-routing packet\n");
+      /*Send with mac if it's there*/
+      sr_ethernet_hdr_t *e_pac = (sr_ethernet_hdr_t *)(packet); 
+      int i;
+      for(i=0;i<ETHER_ADDR_LEN;i++){
+        e_pac->ether_dhost[i] = arp_loc->mac[i];
+        e_pac->ether_shost[i] = iface_addr[i];
+      }
+      free(arp_loc);
+      print_hdrs(packet,len);
+      sr_send_packet(sr,packet,len,out_iface->name); 
     }
 }
 
@@ -308,7 +422,7 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     sr_send_packet(sr, newPacket, len, iface);
 }
 
-int sr_HANDLE_nat(struct sr_instance* sr /* borrowed */,
+int sr_handle_nat(struct sr_instance* sr /* borrowed */,
                   uint8_t* packet /* borrowed */ ,
                   unsigned int len,
                   const char* iface /* borrowed */)

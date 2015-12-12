@@ -72,13 +72,14 @@ void sr_init(struct sr_instance*);
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, char *, struct sr_if *);
 void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr_if*);
+void reroute_packet(struct sr_instance* ,uint8_t*, unsigned int, const char*);
 /* sending packets */
 void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
 
-/* ant application & tcp checksum */
-
-int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len);
+/* nat application & tcp checksum */
+int sr_handle_nat(struct sr_instance*, uint8_t*, unsigned int, const char*);
+int tcp_cksum(struct sr_instance*, uint8_t*, unsigned int);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );

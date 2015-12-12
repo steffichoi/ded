@@ -361,55 +361,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
           return;
         }
       }
-      else {
-        /*Check cache for mac*/
-        struct sr_arpentry* arp_loc;
-        if ((arp_loc=sr_arpcache_lookup(&(sr->cache),ip)) == NULL){
-          /*Send arp request out of interface if no mac*/
-
-          Debug("Caching Packet\n");
-          print_hdrs(packet,len);
-          sr_arpcache_queuereq(&(sr->cache),ip,packet,len,out_iface->name);
-
-          sr_arp_hdr_t* a_ret = (sr_arp_hdr_t*)(ret_pac + sizeof(sr_ethernet_hdr_t));
-          int i;
-          for(i=0;i<ETHER_ADDR_LEN;i++){
-            e_ret->ether_dhost[i] =0xFF;
-            e_ret->ether_shost[i] = iface_addr[i];
-            a_ret->ar_sha[i] = iface_addr[i];
-            a_ret->ar_tha[i]= 0x0000;
-          }
-
-          a_ret->ar_hrd=ntohs(0x0001);
-          a_ret->ar_pro=ntohs(0x0800);
-          a_ret->ar_hln=0x0006;
-          a_ret->ar_pln=0x0004;
-          a_ret->ar_op=ntohs(0x0001);
-          a_ret->ar_sip=out_iface->ip;
-          a_ret->ar_tip=ip;
-
-          Debug("Sending ARP request\n");
-          print_hdrs(ret_pac,len);
-          sr_send_packet(sr,ret_pac,len,out_iface->name);
-          free(ret_pac);
-          /*free(req);*/
-        }
-        else{
-          Debug("ARP Cache found, re-routing packet\n");
-
-          /*Send with mac if it's there*/
-          sr_ethernet_hdr_t *e_pac = (sr_ethernet_hdr_t *)(packet); 
-          int i;
-          for(i=0;i<ETHER_ADDR_LEN;i++){
-            e_pac->ether_dhost[i] = arp_loc->mac[i];
-            e_pac->ether_shost[i] = iface_addr[i];
-          }
-          free(arp_loc);
-          print_hdrs(packet,len);
-          sr_send_packet(sr,packet,len,out_iface->name); 
-          free(ret_pac);
-        }
-      }
     }
     req->sent = curtime;
     req->times_sent++;

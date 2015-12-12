@@ -76,9 +76,7 @@ void sr_natHandle(struct sr_instance*, uint8_t*, unsigned int, struct sr_if *, c
 /* sending packets */
 void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, const char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);
-
-/* nat application & tcp checksum */
-int sr_handle_nat(struct sr_instance*, uint8_t*, unsigned int, const char*);
+/* tcp checksum */
 int tcp_cksum(struct sr_instance*, uint8_t*, unsigned int);
 
 /* -- sr_if.c -- */

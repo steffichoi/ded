@@ -93,10 +93,10 @@ void sr_handlepacket(struct sr_instance* sr,
       sr_handleARPpacket(sr, ether_packet, len, iface, interface);
     }else if(package_type == ethertype_ip){
       /* IP protocol */
-      if (sr->nat) {
+      if (sr->nat) {  /* nat mode enabled */
         sr_natHandle(sr, ether_packet, len, iface, interface);
       }
-      else {
+      else {  /* normal simple router */
         sr_handleIPpacket(sr, ether_packet,len, interface, iface);
       }
     }else{
@@ -109,7 +109,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len, const char *interface, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
-  struct sr_if *tgt_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
+  struct sr_if *if_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
   uint16_t incm_cksum = ipHeader->ip_sum;
   ipHeader->ip_sum = 0;
@@ -118,56 +118,50 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len
   if (calc_cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
   } 
-  else if (tgt_iface){
-    fprintf(stderr,"For us\n");
+  else if (if_iface){
+    /* packet for us */
     if(ipHeader->ip_p==6 || ipHeader->ip_p==17){ /* TCP/UDP */
-      fprintf(stderr,"TCP/UDP\n");
       sr_sendICMP(sr, packet, interface, 3, 3);
     } 
     else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
-      fprintf(stderr,"ICMP\n");
       sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
       incm_cksum = icmp_header->icmp_sum;
       icmp_header->icmp_sum = 0;
       calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
       icmp_header->icmp_sum = incm_cksum;
+      
       uint8_t type = icmp_header->icmp_type;
       uint8_t code = icmp_header->icmp_code;
+
       if (incm_cksum != calc_cksum){
         fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
       } 
       else if (type == 8 && code == 0) {
         struct sr_rt* rt;
         rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-        /*sr_sendICMP(sr, packet, interface, 0, 0);*/
         sr_sendIP(sr, packet, len, rt, interface);
       }
     }
   } 
-  else if (ipHeader->ip_ttl <= 1){
-    fprintf(stderr,"Packet died\n");
+  else if (ipHeader->ip_ttl == 0){  /* ttl died */
     sr_sendICMP(sr, packet, interface, 11, 0);
   } 
-  else {
-    fprintf(stderr,"Not for us\n");
+  else {  /* not one of mine. find next hop */
     struct sr_rt* rt;
     rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
     if (rt){
       if (ipHeader->ip_p==6){  /* TCP */
-        if (!sr->nat){
-          sr_sendICMP(sr, packet,interface,3,3);
-          return;
-        }
+        sr_sendICMP(sr, packet,interface,3,3);
         if (tcp_cksum(sr,packet,len) == 1){
           fprintf(stderr , "** Error: TCP checksum failed \n");
           return;
         }
       }
-      else {
+      else {  /* IP */
         sr_sendIP(sr, packet, len, rt, interface);
       }
     } 
-    else {
+    else {  /* no route found! */
       sr_sendICMP(sr, packet, interface, 3, 0);
     }
   }
@@ -182,19 +176,19 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
 
     /* handle an arp request.*/
     if (ntohs(arpHeader->ar_op) == arp_op_request) {
-        /* found an ip->mac mapping. send a reply to the requester's MAC addr */
-        if (req_iface){
-          arpHeader->ar_op = ntohs(arp_op_reply);
-          uint32_t temp = arpHeader->ar_sip;
-          arpHeader->ar_sip = arpHeader->ar_tip;
-          arpHeader->ar_tip = temp;
-          memcpy(arpHeader->ar_tha, arpHeader->ar_sha,6);
-          memcpy(arpHeader->ar_sha, iface->addr,6);
+      /* found an ip->mac mapping. send a reply to the requester's MAC addr */
+      if (req_iface){
+        arpHeader->ar_op = ntohs(arp_op_reply);
+        uint32_t temp = arpHeader->ar_sip;
+        arpHeader->ar_sip = arpHeader->ar_tip;
+        arpHeader->ar_tip = temp;
+        memcpy(arpHeader->ar_tha, arpHeader->ar_sha,6);
+        memcpy(arpHeader->ar_sha, iface->addr,6);
 
-          /*swapping outgoing and incoming addr*/
-          set_eth_addr(ethHeader, iface->addr, ethHeader->ether_shost);
-          sr_send_packet(sr,(uint8_t*)ethHeader,len,iface->name);
-        }
+        /*swapping outgoing and incoming addr*/
+        set_eth_addr(ethHeader, iface->addr, ethHeader->ether_shost);
+        sr_send_packet(sr,(uint8_t*)ethHeader,len,iface->name);
+      }
     }
     /* handle an arp reply */
     else if (ntohs(arpHeader->ar_op) == arp_op_reply) {
@@ -203,18 +197,16 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
       pthread_mutex_lock(&(sr->cache.lock));
       req = sr_arpcache_insert(&(sr->cache), arpHeader->ar_sha, arpHeader->ar_sip);
       if(req){
-          fprintf(stderr,"Clearing queue\n");
-          for (req_packet = req->packets; req_packet != NULL; req_packet = req_packet->next){
-              sr_ethernet_hdr_t * outETH = (sr_ethernet_hdr_t *)(req_packet->buf);
-              memcpy(outETH->ether_shost, req_iface->addr,6);
-              memcpy(outETH->ether_dhost, arpHeader->ar_sha,6);
-              sr_ip_hdr_t * outIP = (sr_ip_hdr_t *)(req_packet->buf+14);
-              outIP->ip_ttl = outIP->ip_ttl-1;
-              outIP->ip_sum = 0;
-              outIP->ip_sum = cksum((uint8_t *)outIP,20);
-              sr_send_packet(sr,req_packet->buf,req_packet->len,req_iface->name);
-          }
-          sr_arpreq_destroy(&(sr->cache), req);
+        for (req_packet = req->packets; req_packet != NULL; req_packet = req_packet->next){
+          sr_ethernet_hdr_t * outETH = (sr_ethernet_hdr_t *)(req_packet->buf);
+          set_eth_addr(outETH, req_iface->addr, arpHeader->ar_sha);
+          sr_ip_hdr_t * outIP = (sr_ip_hdr_t *)(req_packet->buf+14);
+          outIP->ip_ttl = outIP->ip_ttl-1;
+          outIP->ip_sum = 0;
+          outIP->ip_sum = cksum((uint8_t *)outIP,20);
+          sr_send_packet(sr,req_packet->buf,req_packet->len,req_iface->name);
+        }
+        sr_arpreq_destroy(&(sr->cache), req);
       }
       pthread_mutex_unlock(&(sr->cache.lock));
     }
@@ -315,14 +307,14 @@ void sr_natHandle(struct sr_instance* sr,
         struct sr_if * rec_iface, const char *iface)
 {
     sr_ip_hdr_t * ip_header = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
-    struct sr_if *tgt_iface = sr_get_interface_from_ip(sr,ip_header->ip_dst);
+    struct sr_if *if_iface = sr_get_interface_from_ip(sr,ip_header->ip_dst);
     struct sr_rt * rt = NULL;
     struct sr_nat_mapping *map = NULL;
     uint16_t aux_int;
     uint16_t aux_ext;
     sr_icmp_echo_hdr_t *icmpHeader;
     sr_tcp_hdr_t *tcpHeader;
-    /*struct sr_if *int_if = sr_get_interface(sr,"eth1");*/
+
     struct sr_if *ext_if = sr_get_interface(sr,"eth2");
 
     uint16_t incm_cksum = ip_header->ip_sum;
@@ -336,15 +328,13 @@ void sr_natHandle(struct sr_instance* sr,
     else if (strcmp(rec_iface->name, "eth1") == 0){ /*INTERNAL*/
       sr_nat_mapping_type type;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
-      if (tgt_iface != NULL || rt == NULL){
+      if (if_iface != NULL || rt == NULL){
         sr_handleIPpacket(sr, packet, len, iface, rec_iface);
       } 
-      else if (ip_header->ip_ttl <= 1){
-        fprintf(stderr,"Packet died\n");
+      else if (ip_header->ip_ttl == 0){  /* ttl died */
         sr_sendICMP(sr, packet, iface, 11, 0);
       } 
       else if(ip_header->ip_p==6) { /*TCP*/
-        fprintf(stderr,"FWD TCP from int\n");
         type = nat_mapping_tcp;
         tcpHeader = (sr_tcp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         aux_int=ntohs(tcpHeader->source);
@@ -362,7 +352,6 @@ void sr_natHandle(struct sr_instance* sr,
         }
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
-        fprintf(stderr,"FWD ICMP from int\n");
         icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         incm_cksum = icmpHeader->icmp_sum;
         icmpHeader->icmp_sum = 0;
@@ -372,7 +361,6 @@ void sr_natHandle(struct sr_instance* sr,
           fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
         }
         else if (icmpHeader->icmp_type == 8 && icmpHeader->icmp_code == 0){
-          fprintf(stderr,"\t intfwd icmp id %d\n", icmpHeader->icmp_id);
           type = nat_mapping_icmp;
           
           icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
@@ -403,12 +391,10 @@ void sr_natHandle(struct sr_instance* sr,
     } 
     else if (strcmp(rec_iface->name, "eth2") == 0){ /*EXTERNAL*/
       sr_nat_mapping_type type;
-      if (ip_header->ip_ttl <= 1){
-        fprintf(stderr,"Packet died\n");
+      if (ip_header->ip_ttl == 0){  /* ttl died */
         sr_sendICMP(sr, packet, iface, 11,0);
       }
-      else if(ip_header->ip_p==6) { /*TCP*/
-        fprintf(stderr,"FWD TCP from ext\n");
+      else if(ip_header->ip_p==6) { /* TCP */
         type = nat_mapping_tcp;
         tcpHeader = (sr_tcp_hdr_t *) (packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         map = sr_nat_lookup_external(sr->nat,ntohs(tcpHeader->destination),type);
@@ -430,7 +416,6 @@ void sr_natHandle(struct sr_instance* sr,
         }
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
-        fprintf(stderr,"FWD ICMP from ext\n");
         type = nat_mapping_icmp;
         icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         aux_ext = ntohs(icmpHeader->icmp_id);
@@ -444,19 +429,17 @@ void sr_natHandle(struct sr_instance* sr,
           fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
         }
         else if (icmpHeader->icmp_type == 0 && icmpHeader->icmp_code == 0){
-          fprintf(stderr,"\t extfwd icmp id %d\n", icmpHeader->icmp_id);
           map = sr_nat_lookup_external(sr->nat, aux_ext, type);
+          /* found mapping */
           if (map){
-            fprintf(stderr,"\t extfwd found mapping\n");
             rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);
             ip_header->ip_dst=map->ip_int;
             icmpHeader->icmp_id=ntohs(map->aux_int);
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
 
-            if (rt){
-              fprintf(stderr,"\t extfwd found route\n");
-              
+            /* found route to fwd to */
+            if (rt){              
               ip_header->ip_dst = map->ip_int;
               ip_header->ip_sum = 0;
               ip_header->ip_sum = cksum((uint8_t*)ip_header,sizeof(sr_ip_hdr_t));

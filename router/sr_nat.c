@@ -654,17 +654,14 @@ int sr_nat_handle_internal_conn(struct sr_nat *nat,
   return 0;
 }
 
-
-static int randto(int n) {
-  int r;
-  int maxrand = (RAND_MAX / n) * n;
-  do r = rand(); while (r >= maxrand);
-  return r % n;
-}
-
 static void shuffle(unsigned *x, size_t n) {
   while (--n) {
-    size_t j = randto(n + 1);
+    int r;
+    int maxrand = (RAND_MAX / (n+1)) * (n+1);
+    
+    do r = rand(); while (r >= maxrand);
+    size_t j = r%n;
+    
     unsigned tmp = x[n];
     x[n] = x[j];
     x[j] = tmp;

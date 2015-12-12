@@ -183,30 +183,6 @@ void print_hdrs(uint8_t *buf, uint32_t length) {
   }
 }
 
-uint8_t *createICMP(uint8_t type, uint8_t code, uint8_t *packet, unsigned int len){
-  sr_icmp_t3_hdr_t *icmpHeader = (sr_icmp_t3_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
-  
-  if(type !=0 || code != 0){
-    int data_size;
-    if (len < sizeof(sr_ethernet_hdr_t) + ICMP_DATA_SIZE){
-      data_size = len - sizeof(sr_ethernet_hdr_t);
-    } 
-    else {
-      data_size = ICMP_DATA_SIZE;
-    }
-    memcpy(icmpHeader->data, packet + sizeof(sr_ethernet_hdr_t), data_size);
-    icmpHeader->unused = 0;
-    icmpHeader->next_mtu = 0;
-    len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-  }
-
-  icmpHeader->icmp_type = type;
-  icmpHeader->icmp_code = code;
-  icmpHeader->icmp_sum = 0;
-  icmpHeader->icmp_sum = cksum((uint8_t*)icmpHeader,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-  return (uint8_t *)icmpHeader;
-}
-
 void set_eth_addr(sr_ethernet_hdr_t* ethHeader, uint8_t *src_addr, uint8_t *dst_addr) {
   memcpy(ethHeader->ether_dhost, dst_addr,6);
   memcpy(ethHeader->ether_shost, src_addr,6);

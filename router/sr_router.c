@@ -137,9 +137,12 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
         /*sr_sendICMP(sr, packet, interface, 0, 0);*/
         sr_sendIP(sr, packet, len, rt, interface);
       }
-      else if (sr->nat) {
+      else if (sr->nat && ethertype(packet)==ethertype_ip) {
         printf("handling nat\n");
-        sr_handle_nat(sr, packet, len, interface);
+        if (sr_handle_nat(sr, packet, len, interface) == 1) {
+          return;
+        }
+
       }
     }
   } 
@@ -166,9 +169,11 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
         if (!sr->nat){
           sr_sendIP(sr, packet, len, rt, interface);
         }
-        else {
+        else if (sr->nat && ethertype(packet)==ethertype_ip){
           printf("handling nat\n");
-          sr_handle_nat(sr, packet, len, interface);
+          if (sr_handle_nat(sr, packet, len, interface) == 1){
+            return;
+          }
         }
       }
     } 
@@ -244,9 +249,8 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   } 
   else {
     memcpy(ethHeader->ether_shost, iface->addr, 6);
-    struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
-                                                 len, rt->interface);
-
+    /*struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
+                                                 len, rt->interface); */
     handle_arpreq(sr,req);
   }
   pthread_mutex_unlock(&(sr->cache.lock));

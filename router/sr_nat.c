@@ -252,6 +252,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
 
   pthread_mutex_lock(&(nat->lock));
 
+  Debug("Inserting unsol packet\n");
   uint32_t ip_int = htonl(0);
   uint16_t aux_int= htons(1);
   /* handle insert here, create a mapping, and then return a copy of it */

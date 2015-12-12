@@ -240,7 +240,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
   }
   else if(ntohs(a_hdr->ar_op) == 1){
     Debug("This is a request\n");
-    handle_arpeq(sr,packet,ret_pac,len,interface);
+    handle_arpreq(sr,packet,ret_pac,len,interface);
   }
   else{
     fprintf(stderr, "ARP op-code %u isn't handled\n", ntohs(a_hdr->ar_op));

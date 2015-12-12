@@ -481,8 +481,6 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
       }
     }
   }
-
-
   else{
     Debug("External packet\n");
     uint16_t aux_ext;

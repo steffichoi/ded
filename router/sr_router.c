@@ -368,6 +368,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
       icmpHeader->icmp_id=htons(mapping->aux_ext);
       icmpHeader->icmp_sum=0;
       icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
+      sr_send_packet(sr, packet, len, iface);
     }
     else if (ipHeader->ip_p == ip_protocol_tcp){
       tcpHeader->source=ntohs(mapping->aux_ext);
@@ -377,7 +378,11 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
         free(mapping);
         return 1;
       }
+      else {
+        sr_send_packet(sr, packet, len, iface);
+      }
     }
+    )
   }
   else{
     Debug("External packet\n");
@@ -410,6 +415,9 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
           Debug("Unsolicited syn, don't send\n");
           return 1;
         }
+        else {
+          sr_send_packet(sr, packet, len, iface);
+        }
       }else{
         Debug("No mapping available, welp\n");
         free(mapping);
@@ -424,6 +432,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
         icmpHeader->icmp_id=ntohs(mapping->aux_int);
         icmpHeader->icmp_sum=0;
         icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
+        sr_send_packet(sr, packet, len, iface);
       }
       else if (ipHeader->ip_p == ip_protocol_tcp){
         tcpHeader->destination=ntohs(mapping->aux_int);
@@ -433,6 +442,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
           Debug("Unsolicited syn, don't send\n");
           return 1;
         }
+        sr_send_packet(sr, packet, len, iface);
       }
     }           
   }

@@ -83,7 +83,7 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
     time_t curtime = time(NULL);
     /*Debug("NAT Tick Tock\n");*/
     /* handle periodic tasks here */
-    if (nat->mappings) {
+    if (nat->mappings != NULL) {
       struct sr_nat_mapping *curr_map = nat->mappings;
       /*Debug("Cur Mapping %d\n",curr_map);*/
       struct sr_nat_mapping *prev_map = NULL;

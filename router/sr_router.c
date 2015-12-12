@@ -426,12 +426,12 @@ void sr_natHandle(struct sr_instance* sr,
             fprintf(stderr,"\t extfwd found route\n");
             icmp_header->icmp_id = map->aux_int;
             icmp_header->icmp_sum = 0;
-            icmp_header->icmp_sum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t);
+            icmp_header->icmp_sum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
             
             ip_header->ip_dst = map->ip_int;
             ip_header->ip_sum = 0;
             ip_header->ip_sum = cksum((uint8_t*)ip_header,sizeof(sr_ip_hdr_t));
-            sendIPPacket(sr, packet, len, rt);
+            sr_sendIP(sr, packet, len, rt, iface);
           }
         }
       } 

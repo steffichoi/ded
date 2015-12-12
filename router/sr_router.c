@@ -93,7 +93,12 @@ void sr_handlepacket(struct sr_instance* sr,
       sr_handleARPpacket(sr, ether_packet, len, iface, interface);
     }else if(package_type == ethertype_ip){
       /* IP protocol */
-      sr_handleIPpacket(sr, ether_packet,len, interface, iface);
+      if (sr->nat) {
+        sr_natHandle(sr, ether_packet, len, iface);
+      }
+      else {
+        sr_handleIPpacket(sr, ether_packet,len, interface, iface);
+      }
     }else{
       /* drop package */
        printf("bad protocol! BOO! \n");
@@ -142,7 +147,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet, unsigned int len
         if (sr_handle_nat(sr, packet, len, interface) == 1) {
           return;
         }
-
       }
     }
   } 
@@ -318,6 +322,111 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     print_hdrs(newPacket, len);
     sr_send_packet(sr, newPacket, len, iface);
 }
+
+void sr_natHandle(struct sr_instance* sr, 
+        uint8_t* packet,
+        unsigned int len, 
+        struct sr_if * rec_iface)
+{
+    sr_ip_hdr_t * ip_header = (sr_ip_hdr_t *)(packet+SIZE_ETH);
+    struct sr_if *tgt_iface = sr_get_interface_from_ip(sr,ip_header->ip_dst);
+    struct sr_rt * rt = NULL;
+    struct sr_nat_mapping *map = NULL;
+    /*struct sr_if *int_if = sr_get_interface(sr,"eth1");*/
+    struct sr_if *ext_if = sr_get_interface(sr,"eth2");
+
+    uint16_t incm_cksum = ip_header->ip_sum;
+    ip_header->ip_sum = 0;
+    uint16_t calc_cksum = cksum((uint8_t*)ip_header,SIZE_IP);
+    ip_header->ip_sum = incm_cksum;
+    
+    if (calc_cksum != incm_cksum){
+        fprintf(stderr,"Bad checksum\n");
+    } else if (strcmp(rec_iface->name, "eth1") == 0){ /*INTERNAL*/
+        rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
+        if (tgt_iface != NULL || rt == NULL){
+            handleIPPacket(sr, packet, len, rec_iface);
+        } else if (ip_header->ip_ttl <= 1){
+            fprintf(stderr,"Packet died\n");
+            sr_send_icmp(sr, packet, len, 11, 0,0);
+        } else if(ip_header->ip_p==6) { /*TCP*/
+            fprintf(stderr,"FWD TCP from int\n");
+        } else if(ip_header->ip_p==1 ) { /*ICMP*/
+            fprintf(stderr,"FWD ICMP from int\n");
+            sr_icmp_t8_hdr_t * icmp_header = (sr_icmp_t8_hdr_t*)(packet+SIZE_ETH+SIZE_IP);
+            incm_cksum = icmp_header->icmp_sum;
+            icmp_header->icmp_sum = 0;
+            calc_cksum = cksum((uint8_t*)icmp_header,len-SIZE_ETH-SIZE_IP);
+            icmp_header->icmp_sum = incm_cksum;
+            if (incm_cksum != calc_cksum){
+                fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
+            }
+            else if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0){
+                fprintf(stderr,"\t intfwd icmp id %d\n", icmp_header->icmp_id);
+                map = sr_nat_lookup_internal(&(sr->nat),
+                                            ip_header->ip_src,
+                                            icmp_header->icmp_id,
+                                            nat_mapping_icmp);
+                if (map == NULL){
+                    map = sr_nat_insert_mapping(&(sr->nat),
+                                            ip_header->ip_src,
+                                            icmp_header->icmp_id,
+                                            nat_mapping_icmp);
+                    map->ip_ext = ip_header->ip_dst;
+                }
+                fprintf(stderr,"\t intfwd icmp ext id %d\n", map->aux_ext);
+                icmp_header->icmp_id = map->aux_ext;
+                icmp_header->icmp_sum = 0;
+                icmp_header->icmp_sum = cksum((uint8_t*)icmp_header,len-SIZE_ETH-SIZE_IP);
+                
+                ip_header->ip_src = ext_if->ip;
+                ip_header->ip_sum = 0;
+                ip_header->ip_sum = cksum((uint8_t*)ip_header,SIZE_IP);
+                sendIPPacket(sr, packet, len, rt);
+            }
+        }
+    } else if (strcmp(rec_iface->name, "eth2") == 0){ /*EXTERNAL*/
+        if (ip_header->ip_ttl <= 1){
+            fprintf(stderr,"Packet died\n");
+            sr_send_icmp(sr, packet, len, 11, 0,0);
+        } else if (tgt_iface == NULL) {
+            fprintf(stderr,"NAT Not for us\n");
+        } else if(ip_header->ip_p==6) { /*TCP*/
+            fprintf(stderr,"FWD TCP from ext\n");
+        } else if(ip_header->ip_p==1 ) { /*ICMP*/
+            fprintf(stderr,"FWD ICMP from ext\n");
+            sr_icmp_t8_hdr_t * icmp_header = (sr_icmp_t8_hdr_t*)(packet+SIZE_ETH+SIZE_IP);
+            incm_cksum = icmp_header->icmp_sum;
+            icmp_header->icmp_sum = 0;
+            calc_cksum = cksum((uint8_t*)icmp_header,len-SIZE_ETH-SIZE_IP);
+            icmp_header->icmp_sum = incm_cksum;
+            if (incm_cksum != calc_cksum){
+                fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
+            }
+            else if (icmp_header->icmp_type == 0 && icmp_header->icmp_code == 0){
+                fprintf(stderr,"\t extfwd icmp id %d\n", icmp_header->icmp_id);
+                map = sr_nat_lookup_external(&(sr->nat),
+                                             icmp_header->icmp_id,
+                                             nat_mapping_icmp);
+                if (map != NULL){
+                    fprintf(stderr,"\t extfwd found mapping\n");
+                    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);
+                }
+                if (rt != NULL){
+                    fprintf(stderr,"\t extfwd found route\n");
+                    icmp_header->icmp_id = map->aux_int;
+                    icmp_header->icmp_sum = 0;
+                    icmp_header->icmp_sum = cksum((uint8_t*)icmp_header,len-SIZE_ETH-SIZE_IP);
+                    
+                    ip_header->ip_dst = map->ip_int;
+                    ip_header->ip_sum = 0;
+                    ip_header->ip_sum = cksum((uint8_t*)ip_header,SIZE_IP);
+                    sendIPPacket(sr, packet, len, rt);
+                }
+            }
+        } 
+    }
+}/* end natHandleIPPacket */
 
 int sr_handle_nat(struct sr_instance* sr /* borrowed */,
                   uint8_t* packet /* borrowed */ ,

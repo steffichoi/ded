@@ -186,7 +186,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
     /* handle an arp request.*/
     if (ntohs(arpHeader->ar_op) == arp_op_request) {
         /* found an ip->mac mapping. send a reply to the requester's MAC addr */
-        if (intface){
+        if (req_iface){
           arpHeader->ar_op = ntohs(arp_op_reply);
           uint32_t temp = arpHeader->ar_sip;
           arpHeader->ar_sip = arpHeader->ar_tip;
@@ -215,7 +215,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
               outIP->ip_ttl = outIP->ip_ttl-1;
               outIP->ip_sum = 0;
               outIP->ip_sum = cksum((uint8_t *)outIP,20);
-              sr_send_packet(sr,req_packet->buf,req_packet->len,rec_iface->name);
+              sr_send_packet(sr,req_packet->buf,req_packet->len,req_iface->name);
           }
           sr_arpreq_destroy(&(sr->cache), req);
       }

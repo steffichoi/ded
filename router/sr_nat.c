@@ -85,9 +85,9 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
     /*Debug("Cur Mapping %d\n",curr_map);*/
     struct sr_nat_mapping *prev_map = NULL;
     for(;curr_map != NULL; curr_map = curr_map->next){
-      int time_passed = difftime(curtime,curr_map->last_updated);
+      int time_passed = difftime(curtime,curr_map->time_wait);
 /*      Debug("Mapping time passed %d\n",time_passed);*/
-      if (curr_map->type == nat_mapping_icmp && time_passed>=nat->icmp_timeout){
+      if (curr_map->type == nat_mapping_icmp && time_passed>=nat->icmp_to){
         Debug("Deleting ICMP mapping\n");
         sr_nat_delete_mapping(nat,curr_map,prev_map);
       }
@@ -100,21 +100,22 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
           struct sr_nat_connection *prev_conn = NULL;
           for(;curr_conn!=NULL;curr_conn=curr_conn->next){
             int conn_time_passed = difftime(curtime,curr_conn->time_wait);
-            if(conn_time_passed>=nat->tcp_est_timeout && curr_conn->state == nat_conn_est){
+            if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
               Debug("Deleting established TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
-            }else if (time_passed>=nat->tcp_trans_timeout && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
+            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
               Debug("Deleting transitory TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){
               Debug("Deleting unsolicited SYN TCP connection\n");
               /*uint8_t *packet = curr_conn->packet;*/
-              send_icmp_pac(sr,curr_conn->packet,"eth2",3,3);
+              sr_sendICMP(sr, curr_conn->packet, "eth2", 3, 3);
               free(curr_conn->packet);
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }
-            else
+            else {
               prev_conn = curr_conn;
+            }
           }
         }
       }

@@ -189,7 +189,8 @@ int main(int argc, char **argv)
 
     /*Initialise NAT mode if enabled*/
     if (nat_usage){
-        Debug("NAT mode enabled\n");
+
+        printf("NAT mode enabled\n");
         sr.nat=&nat;
         sr_nat_init(&sr,icmp_timeout,tcp_est_timeout,tcp_trans_timeout);
     }else{

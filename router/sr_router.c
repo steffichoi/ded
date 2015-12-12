@@ -132,6 +132,8 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
         fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
       } 
       else if (type == 8 && code == 0) {
+        struct sr_rt* rt;
+        rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
         /*sr_sendICMP(sr, packet, interface, 0, 0);*/
         sr_sendIP(sr, packet, len, rt, interface);
       }

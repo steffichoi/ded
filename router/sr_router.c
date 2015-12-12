@@ -249,9 +249,10 @@ void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct
   } 
   else {
     memcpy(ethHeader->ether_shost, iface->addr, 6);
-    /*struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
-                                                 len, rt->interface); */
+    struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), (uint32_t)(rt->gw.s_addr), packet, 
+                                               len, rt->interface); 
     handle_arpreq(sr,req);
+    }
   }
   pthread_mutex_unlock(&(sr->cache.lock));
 }

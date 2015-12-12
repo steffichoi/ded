@@ -102,7 +102,7 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
-void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
+void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, const char *interface, struct sr_if * iface){
   sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
   struct sr_if *tgt_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
 
@@ -230,7 +230,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
     }
 }
 
-void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt, char *interface) {
+void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt, const char *interface) {
   struct sr_if* iface = sr_get_interface(sr, rt->interface);
   
   pthread_mutex_lock(&(sr->cache.lock));

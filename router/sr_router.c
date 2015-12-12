@@ -134,7 +134,9 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       }
     }
   } 
-  
+  else if (ipHeader->ip_ttl == 0){   /* ttl ded */
+    sr_sendICMP(sr, packet, interface, 11, 0);
+  }
   /* packet not for me */
   else {
     /* check cache for ip->mac mapping for next hop */
@@ -160,9 +162,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       req = sr_arpcache_queuereq(&(sr->cache), ipHeader->ip_dst, packet, len, iface->name);
       handle_arpreq(sr, req);
     } 
-    else if (ipHeader->ip_ttl == 0){   /* ttl ded */
-      sr_sendICMP(sr, packet, interface, 11, 0);
-    }
     else {
       sr_sendICMP(sr, packet, interface, 3, 0);
     }

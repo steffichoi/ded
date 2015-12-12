@@ -103,70 +103,92 @@ void sr_handlepacket(struct sr_instance* sr,
 }/* end sr_ForwardPacket */
 
 void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len, char *interface, struct sr_if * iface){
-  sr_ip_hdr_t * ipHeader = (sr_ip_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t));
-  struct sr_if *tgt_iface= sr_get_interface_from_ip(sr,ipHeader->ip_dst);
+  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
+  print_hdr_ip(packet + sizeof(sr_ethernet_hdr_t));
+  uint16_t checksum = ip_hdr->ip_sum;
+  ip_hdr->ip_sum = 0; 
+  Debug("IP Checksum: %d \n",cksum(ip_hdr,sizeof(sr_ip_hdr_t))); 
+  if (checksum != cksum(ip_hdr,sizeof(sr_ip_hdr_t))) {
+      fprintf(stderr , "** Error: IP checksum failed \n");
+      return;
+  }else if (ip_hdr->ip_src == 0){
+    return;
+  }
+  ip_hdr->ip_sum = checksum;
 
-  uint16_t incm_cksum = ipHeader->ip_sum;
-  ipHeader->ip_sum = 0;
-  uint16_t calc_cksum = cksum((uint8_t*)ipHeader,20);
-  ipHeader->ip_sum = incm_cksum;
-  if (calc_cksum != incm_cksum){
-      fprintf(stderr,"Bad checksum\n");
-  } 
-  else if (tgt_iface){
-    fprintf(stderr,"For us\n");
-    if(ipHeader->ip_p==6){ /*TCP*/
-      fprintf(stderr,"TCP\n");
-      sr_sendICMP(sr, packet, interface, 3, 3);
-    } 
-    else if (ipHeader->ip_p==17){ /*UDP*/
-        fprintf(stderr,"UDP\n");
-        sr_sendICMP(sr, packet, interface, 3, 3);
-    } 
-    else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
-      fprintf(stderr,"ICMP\n");
-      sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-      incm_cksum = icmp_header->icmp_sum;
-      icmp_header->icmp_sum = 0;
-      calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-      icmp_header->icmp_sum = incm_cksum;
-      uint8_t type = icmp_header->icmp_type;
-      uint8_t code = icmp_header->icmp_code;
-      if (incm_cksum != calc_cksum){
-        fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
-      } 
-      else if (type == 8 && code == 0) {
-        sr_sendICMP(sr, packet, interface, 0, 0);
+  uint8_t ip_proto = ip_protocol(packet + sizeof(sr_ethernet_hdr_t));
+  
+  /*Creates reverse packet*/
+  sr_ip_hdr_t *ip_ret = (sr_ip_hdr_t *)(ret_pac + sizeof(struct sr_ethernet_hdr));
+  reverse_ip(sr,ip_ret);
+
+  /*Packet is too old, time to die*/
+  if(ip_ret->ip_ttl == 0){
+    Debug("Packet is too old, time to die");
+    free(ret_pac);
+    sr_sendICMP(sr,packet,interface,11,0);
+  }/*The packet is for someone else*/
+  else if (!sr_get_interface_from_ip(sr,ip_hdr->ip_dst) ||
+   (sr->nat != NULL && interface[3]=='2')){
+      Debug("Not meant for me, re-route\n");
+      if (!ip_in_rtable(sr,ip_ret->ip_src) &&
+        !(sr->nat != NULL && interface[3]=='2')){
+        Debug("No route for packet, send ICMP back\n");
+        sr_sendICMP(sr, packet,interface,3,0);
+        return;
       }
-      else if (sr->nat) {
-        reroute_packet(sr,packet,len,interface);
-      }
-    }
-  } 
-  else if (ipHeader->ip_ttl <= 1){
-    fprintf(stderr,"Packet died\n");
-    sr_sendICMP(sr, packet, interface, 11, 0);
-  } 
-  else {
-    fprintf(stderr,"Not for us\n");
-    struct sr_rt* rt;
-    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-    if (rt){
-      if (ipHeader->ip_p==6){  /* TCP */
-        if (!sr->nat){
-          sr_sendICMP(sr, packet,interface,3,3);
-          return;
-        }
-        if (tcp_cksum(sr,packet,len) == 1){
-          fprintf(stderr , "** Error: TCP checksum failed \n");
-          return;
+      else if (ip_proto != ip_protocol_icmp){
+        if (ip_proto == ip_protocol_tcp){
+          if (sr->nat == NULL){
+            sr_sendICMP(sr, packet,interface,3,3);
+            return;
+          }
+          if (tcp_cksum(sr,packet,len) == 1){
+            fprintf(stderr , "** Error: TCP checksum failed \n");
+            return;
+          }
         }
       }
-    } 
-    else {
-      sr_sendICMP(sr, packet, interface, 3, 0);
+      reroute_packet(sr,packet,len,interface);
+      return;
+  }
+  else if (ip_proto == ip_protocol_icmp) { /* ICMP */
+    minlength += sizeof(sr_icmp_hdr_t);
+
+    if (len < minlength){
+      fprintf(stderr, "Failed to print ICMP header, insufficient length\n");
+      return;
     }
-    reroute_packet(sr,packet,len,interface);
+    sr_icmp_hdr_t *icmp_hdr = (sr_icmp_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+
+    checksum = icmp_hdr->icmp_sum;
+    icmp_hdr->icmp_sum = 0;
+    Debug("ICMP Checksum: %d \n",cksum(icmp_hdr,64)); 
+    if (checksum != cksum(icmp_hdr,64)) {
+      fprintf(stderr , "** Error: ICMP checksum failed \n");
+    }else if (sr->nat != NULL){
+      reroute_packet(sr,packet,len,interface);
+    }
+    else{
+      sr_icmp_hdr_t *icmp_ret = (sr_icmp_hdr_t *)(ret_pac + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
+      icmp_ret->icmp_sum = 0;
+      if (icmp_hdr->icmp_type == 8){
+        Debug("ICMP Echo Request\n");
+        icmp_ret->icmp_type = 0;
+        ip_ret->ip_sum = cksum(ip_ret,sizeof(sr_ip_hdr_t));
+        icmp_ret->icmp_sum = cksum(icmp_ret,64);
+        print_hdrs(ret_pac,len);
+        sr_send_packet(sr,ret_pac,len,interface); 
+        free(ret_pac);
+      }
+      else{
+        fprintf(stderr, "Unsupported ICMP Message: Type %d Code %d\n",icmp_hdr->icmp_type,icmp_hdr->icmp_code);
+      }
+    }
+  }
+  else{
+    Debug("Returns ICMP Port Unreachable\n");
+    sr_sendICMP(sr,packet,interface,3,3);
   }
 }
 

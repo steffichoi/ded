@@ -186,18 +186,15 @@ int main(int argc, char **argv)
     /* call router init (for arp subsystem etc.) */
     sr_init(&sr);
 
-
     /*Initialise NAT mode if enabled*/
     if (nat_usage){
-
         printf("NAT mode enabled\n");
         sr.nat=&nat;
         sr_nat_init(&sr,icmp_timeout,tcp_est_timeout,tcp_trans_timeout);
     }else{
         sr.nat=NULL;
     }
-
-
+    
     /* -- whizbang main loop ;-) */
     while( sr_read_from_server(&sr) == 1);
 

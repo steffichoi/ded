@@ -78,7 +78,7 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
   while (1) {
     sleep(1.0);
     
-    pthread_mutex_lock(&(nat->lock));
+    /* pthread_mutex_lock(&(nat->lock)); */
     printf("seg here?\n");
     time_t curtime = time(NULL);
     /*Debug("NAT Tick Tock\n");*/
@@ -124,7 +124,7 @@ void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
       else
         prev_map = curr_map;
     }
-    pthread_mutex_unlock(&(nat->lock));
+    /*pthread_mutex_unlock(&(nat->lock));*/
   }
   return NULL;
 }

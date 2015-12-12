@@ -335,69 +335,60 @@ void *sr_arpcache_timeout(void *sr_ptr) {
 }
 
 /* Helper function to handle ARP requests */
-
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
-  time_t curtime = time(NULL);
-  struct sr_packet *packet;
-  struct sr_arpcache *cache = &(sr->cache);
-  char * iface =0;
-
-  if (difftime(curtime, req->sent) > 1.0) {
+void handle_arpreq(struct sr_instance* sr /* borrowed */,
+                         uint8_t* packet /* borrowed */ ,
+                         uint8_t* ret_pac,
+                         unsigned int len,
+                         const char* iface /* borrowed */)
+{
     
-    /* send icmp host unreachable to source addr of all pkts waiting on this request  */
-    if (req->times_sent >= 5) {
-      pthread_mutex_lock(&(cache->lock));
-      for (packet = req->packets; packet != NULL; packet = packet->next) {
-        sr_sendICMP(sr, packet->buf, iface, 3, 1);
+    /* REQUIRES */
+    assert(sr);
+    assert(packet);
+    assert(ret_pac);
+    assert(iface);
+
+    struct sr_if* if_i = sr_get_interface(sr,iface);
+    assert(if_i);
+
+    sr_ethernet_hdr_t *e_hdr = (sr_ethernet_hdr_t *)(packet);
+
+    sr_arp_hdr_t* a_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    sr_arp_hdr_t* a_ret = (sr_arp_hdr_t*)(ret_pac + sizeof(sr_ethernet_hdr_t));
+
+
+    bool flag = true;
+    int addr_i;
+    for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
+      if (e_hdr->ether_dhost[addr_i] != 0xFF && 
+        e_hdr->ether_dhost[addr_i] != if_i->addr[addr_i]){
+        flag=false;
+        break;
       }
-      sr_arpreq_destroy(&sr->cache, req);
-      pthread_mutex_unlock(&(cache->lock));
     }
+    if (flag){
 
-    /* send an arp request */
-    else {
-      pthread_mutex_lock(&(cache->lock));
-      packet = req->packets;
-      assert(packet->buf);
-      /*struct sr_ethernet_hdr *ethIncoming = (struct sr_ethernet_hdr *)(packet->buf);*/
-      sr_ip_hdr_t * ipIncoming = (sr_ip_hdr_t *)((packet->buf) + 14);
+          Debug("We have a match!\n");
+          /*Sends an ARP reply*/
+          int addr_i;
+          for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
+            a_ret->ar_tha[addr_i] = a_hdr->ar_sha[addr_i]; 
+            a_ret->ar_sha[addr_i] = if_i->addr[addr_i];
+          }
 
-      uint8_t * outgoing = (uint8_t*)malloc(sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t));
-      sr_ethernet_hdr_t *ethHeader = (sr_ethernet_hdr_t *) outgoing;
-      sr_arp_hdr_t * arpHeader = (sr_arp_hdr_t *)(outgoing + sizeof(sr_ethernet_hdr_t));
+          a_ret->ar_sip = if_i->ip;
+          a_ret->ar_tip = a_hdr->ar_sip;
+          a_ret->ar_op*=2;
 
-      /* set ARPHeader to request */
-      arpHeader->ar_hrd = htons(0x0001); 
-      arpHeader->ar_pro = htons(0x800); 
-      arpHeader->ar_op = htons(0x0001);
-      arpHeader->ar_hln = 0x0006; 
-      arpHeader->ar_pln = 0x0004;
-      memset(arpHeader->ar_tha, 255, 6);
-      arpHeader->ar_tip = ipIncoming->ip_dst;
-
-      /* set Ethernet Header */
-      ethHeader->ether_type = htons(0x0806);
-      memset(ethHeader->ether_dhost, 255,6);
-
-      /* get outgoing interface and send the request */
-      struct sr_if* if_walker;
-      if_walker = sr_get_interface(sr, req->packets->iface);
-
-      while(if_walker) {
-        arpHeader->ar_sip = if_walker->ip;
-        memcpy(arpHeader->ar_sha, if_walker->addr, 6);
-        memcpy(ethHeader->ether_shost, if_walker->addr, 6);
-
-        sr_send_packet(sr, outgoing, sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t), if_walker->name);
-        if_walker = if_walker->next;
-      }
-
-      free(outgoing);
-      req->sent = curtime;
-      req->times_sent++;
-      pthread_mutex_unlock(&(cache->lock));
+          sr_arpcache_insert(&(sr->cache),a_hdr->ar_sha,a_hdr->ar_sip);
+          sr_send_packet(sr,ret_pac,len,iface);    
+          free(ret_pac);  
+          /*free(req);*/
     }
-  }
+    else{
+      Debug("Not for me, re-route!\n");
+      reroute_packet(sr,packet,len,iface);
+    }
 }
 
 void send_request(struct sr_instance* sr, uint32_t ip) {

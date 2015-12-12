@@ -90,7 +90,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     struct sr_arpreq *req;
 
     for (req = sr->cache.requests; req != NULL; req = req->next) {
-        sr_handle_arpreq(sr,req);
+        handle_arpreq(sr,req);
     }
 }
 
@@ -325,7 +325,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
   struct sr_packet *packet;
   if (req->times_sent >= 5) {
     for (packet = req->packets; packet != NULL; packet = packet->next) {
-      sr_send_icmp(sr, packet->buf, packet->len, 3, 1, 0);
+      sr_sendICMP(sr, packet->buf, packet->iface, 3, 1);
     }
     sr_arpreq_destroy(&sr->cache, req);
   } 

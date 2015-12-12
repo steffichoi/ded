@@ -139,7 +139,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
         sr_sendICMP(sr, packet, interface, 0, 0);
       }
       else if (sr->nat) {
-        /* reroute!! */
+        reroute_packet(sr,packet,len,interface);
       }
     }
   } 
@@ -166,7 +166,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     else {
       sr_sendICMP(sr, packet, interface, 3, 0);
     }
-    /* reroute */
+    reroute_packet(sr,packet,len,interface);
   }
 }
 
@@ -225,7 +225,7 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
           }
           /* interface not in list */
           else if (!iface) {
-              /* reroute!1 */
+              reroute_packet(sr,packet,len,interface);
           }
         }
       }

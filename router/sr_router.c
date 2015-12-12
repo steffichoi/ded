@@ -90,7 +90,7 @@ void sr_handlepacket(struct sr_instance* sr,
     
     if(package_type == ethertype_arp){
       /* ARP protocol */
-      sr_handleARPpacket(sr, ether_packet, len, iface);
+      sr_handleARPpacket(sr, ether_packet, len, iface, interface);
     }else if(package_type == ethertype_ip){
       /* IP protocol */
       sr_handleIPpacket(sr, ether_packet,len, interface, iface);
@@ -170,7 +170,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   }
 }
 
-void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int len, struct sr_if * iface) {
+void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int len, struct sr_if * iface, const char * interface) {
     assert(packet);
     sr_ethernet_hdr_t* ethHeader = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t * arpHeader = (sr_arp_hdr_t *) (packet+14);
@@ -178,12 +178,12 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
     enum sr_arp_opcode request = arp_op_request;
     enum sr_arp_opcode reply = arp_op_reply;
 
-    struct sr_if *interface = sr_get_interface_from_ip(sr, htonl(arpHeader->ar_tip));
+    struct sr_if *intface = sr_get_interface_from_ip(sr, htonl(arpHeader->ar_tip));
 
     /* handle an arp request.*/
     if (ntohs(arpHeader->ar_op) == request) {
         /* found an ip->mac mapping. send a reply to the requester's MAC addr */
-        if (interface){
+        if (intface){
           arpHeader->ar_op = ntohs(reply);
           uint32_t temp = arpHeader->ar_sip;
           arpHeader->ar_sip = arpHeader->ar_tip;

@@ -141,12 +141,12 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
       break;
   }
 
-  if(search_mapping==NULL){
+  if(!search_mapping){
     pthread_mutex_unlock(&(nat->lock));
     return NULL;    /*Not found*/
   }
   else
-    search_mapping->last_updated = time(NULL);
+    search_mapping->time_wait = time(NULL);
 
   struct sr_nat_mapping *copy =(struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
   memcpy(copy,search_mapping,sizeof (struct sr_nat_mapping));
@@ -170,12 +170,12 @@ struct sr_nat_mapping *sr_nat_lookup_internal(struct sr_nat *nat,
       break;
   }
   
-  if(!search_mappingL){
+  if(!search_mapping){
     pthread_mutex_unlock(&(nat->lock));
     return NULL;    /*Not found*/
   }
   else {
-    search_mapping->last_updated = time(NULL); 
+    search_mapping->time_wait = time(NULL); 
   }
   struct sr_nat_mapping *copy =(struct sr_nat_mapping *) malloc(sizeof (struct sr_nat_mapping));
   memcpy(copy,search_mapping,sizeof (struct sr_nat_mapping));

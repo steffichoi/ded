@@ -112,41 +112,48 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
   ipHeader->ip_sum = incm_cksum;
   if (calc_cksum != incm_cksum){
       fprintf(stderr,"Bad checksum\n");
-  } else if (tgt_iface != NULL){
-      fprintf(stderr,"For us\n");
-      if(ipHeader->ip_p==6){ /*TCP*/
-          fprintf(stderr,"TCP\n");
-          sr_sendICMP(sr, packet, interface, 3, 3);
-      } else if (ipHeader->ip_p==17){ /*UDP*/
-          fprintf(stderr,"UDP\n");
-          sr_sendICMP(sr, packet, interface, 3, 3);
-      } else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
-          fprintf(stderr,"ICMP\n");
-          sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-          incm_cksum = icmp_header->icmp_sum;
-          icmp_header->icmp_sum = 0;
-          calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
-          icmp_header->icmp_sum = incm_cksum;
-          uint8_t type = icmp_header->icmp_type;
-          uint8_t code = icmp_header->icmp_code;
-          if (incm_cksum != calc_cksum){
-              fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
-          } else if (type == 8 && code == 0) {
-              sr_sendICMP(sr, packet, interface, 0, 0);
-          }
+  } 
+  else if (tgt_iface != NULL){
+    fprintf(stderr,"For us\n");
+    if(ipHeader->ip_p==6){ /*TCP*/
+      fprintf(stderr,"TCP\n");
+      sr_sendICMP(sr, packet, interface, 3, 3);
+    } 
+    else if (ipHeader->ip_p==17){ /*UDP*/
+        fprintf(stderr,"UDP\n");
+        sr_sendICMP(sr, packet, interface, 3, 3);
+    } 
+    else if (ipHeader->ip_p==1 && ipHeader->ip_tos==0){ /*ICMP PING*/
+      fprintf(stderr,"ICMP\n");
+      sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+      incm_cksum = icmp_header->icmp_sum;
+      icmp_header->icmp_sum = 0;
+      calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+      icmp_header->icmp_sum = incm_cksum;
+      uint8_t type = icmp_header->icmp_type;
+      uint8_t code = icmp_header->icmp_code;
+      if (incm_cksum != calc_cksum){
+        fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
+      } 
+      else if (type == 8 && code == 0) {
+        sr_sendICMP(sr, packet, interface, 0, 0);
       }
-  } else if (ipHeader->ip_ttl <= 1){
-      fprintf(stderr,"Packet died\n");
-      sr_sendICMP(sr, packet, interface, 11, 0);
-  } else {
-      fprintf(stderr,"Not for us\n");
-      struct sr_rt* rt;
-      rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
-      if (rt){
-          sr_sendIP(sr,packet,len,rt, interface);
-      } else {
-          sr_sendICMP(sr, packet, interface, 3, 0);
-      }
+    }
+  } 
+  else if (ipHeader->ip_ttl <= 1){
+    fprintf(stderr,"Packet died\n");
+    sr_sendICMP(sr, packet, interface, 11, 0);
+  } 
+  else {
+    fprintf(stderr,"Not for us\n");
+    struct sr_rt* rt;
+    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
+    if (rt){
+      sr_sendIP(sr,packet,len,rt, interface);
+    } 
+    else {
+      sr_sendICMP(sr, packet, interface, 3, 0);
+    }
   }
 }
 
@@ -301,7 +308,131 @@ void sr_sendICMP(struct sr_instance *sr, uint8_t *packet, const char* iface, uin
     sr_send_packet(sr, newPacket, len, iface);
 }
 
+int sr_HANDLE_nat(struct sr_instance* sr /* borrowed */,
+                  uint8_t* packet /* borrowed */ ,
+                  unsigned int len,
+                  const char* iface /* borrowed */)
+{
+  if(sr->nat == NULL)
+    return 0;
+  Debug("Applying NAT\n");
+  print_hdr_ip(packet+ sizeof(struct sr_ethernet_hdr));
+  sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
 
+  struct sr_nat_mapping *mapping;
+  if(strcmp(iface,"eth1")==0){
+    Debug("Internal packet\n");
+    uint16_t aux_int;
+    sr_icmp_echo_hdr_t *icmpHeader;
+    sr_tcp_hdr_t *tcpHeader;
+
+    /*Internal mapping lookup and packet translating*/
+    sr_nat_mapping_type type;
+    
+    if (ipHeader->ip_p == ip_protocol_icmp){
+      Debug("ICMP Packet\n");
+      type = nat_mapping_icmp;
+      icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_int = ntohs(icmpHeader->icmp_id);
+      mapping = sr_nat_lookup_internal(sr->nat,ntohl(ipHeader->ip_src),aux_int,type);
+    }
+    else if (ipHeader->ip_p == ip_protocol_tcp){
+      Debug("TCP Packet\n");
+      type = nat_mapping_tcp;
+      tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_int=ntohs(tcpHeader->source);
+      mapping = sr_nat_lookup_internal(sr->nat,ipHeader->ip_src,aux_int,type);
+    }
+    
+    if (mapping == NULL){
+      Debug("No mapping available, making new one\n");
+      mapping = sr_nat_insert_mapping(sr->nat,ipHeader->ip_src,aux_int,type);
+    }
+    Debug("Applying map\n");
+    print_addr_ip_int(mapping->ip_ext);
+    print_addr_ip_int(mapping->ip_int);
+    ipHeader->ip_src=mapping->ip_ext;
+
+    if (ipHeader->ip_p == ip_protocol_icmp){
+      icmpHeader->icmp_id=htons(mapping->aux_ext);
+      icmpHeader->icmp_sum=0;
+      icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
+    }
+    else if (ipHeader->ip_p == ip_protocol_tcp){
+      tcpHeader->source=ntohs(mapping->aux_ext);
+      tcp_cksum(sr,packet,len);
+      if (sr_nat_handle_internal_conn(sr->nat,mapping,packet,len) ==1){
+        Debug("Something went wrong, dropping packet\n");
+        free(mapping);
+        return 1;
+      }
+    }
+  }
+
+
+  else{
+    Debug("External packet\n");
+    uint16_t aux_ext;
+    sr_icmp_echo_hdr_t *icmpHeader;
+    sr_tcp_hdr_t *tcpHeader;
+    sr_nat_mapping_type type;
+
+    /*Internal mapping lookup and packet translating*/
+    if (ipHeader->ip_p == ip_protocol_icmp){
+      Debug("ICMP Packet\n");
+      type = nat_mapping_icmp;
+      icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      aux_ext = ntohs(icmpHeader->icmp_id);
+      Debug("%d\n",aux_ext);
+      mapping = sr_nat_lookup_external(sr->nat,aux_ext,type);
+    }
+    else if (ipHeader->ip_p == ip_protocol_tcp){
+      Debug("TCP Packet\n");
+      type = nat_mapping_tcp;
+      tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+      mapping = sr_nat_lookup_external(sr->nat,ntohs(tcpHeader->destination),type);
+    }
+
+    if (mapping == NULL){
+      if (ipHeader->ip_p == ip_protocol_tcp){
+        Debug("Making wildcard mapping to handle unsolicited syns\n");
+        mapping = sr_nat_insert_mapping_unsol(sr->nat,ntohs(tcpHeader->destination),type);
+        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+          Debug("Unsolicited syn, don't send\n");
+          return 1;
+        }
+      }else{
+        Debug("No mapping available, welp\n");
+        free(mapping);
+        return 1;
+      }
+    }
+    else{
+      Debug("Mapping found, applying map\n");
+      ipHeader->ip_dst=mapping->ip_int;
+
+      if (ipHeader->ip_p == ip_protocol_icmp){
+        icmpHeader->icmp_id=ntohs(mapping->aux_int);
+        icmpHeader->icmp_sum=0;
+        icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
+      }
+      else if (ipHeader->ip_p == ip_protocol_tcp){
+        tcpHeader->destination=ntohs(mapping->aux_int);
+        tcp_cksum(sr,packet,len);
+      
+        if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+          Debug("Unsolicited syn, don't send\n");
+          return 1;
+        }
+      }
+    }           
+  }
+  ipHeader->ip_sum=0;
+  ipHeader->ip_sum = cksum(ipHeader,sizeof(sr_ip_hdr_t));
+  if (mapping != NULL)
+    free(mapping);
+  return 0;
+}
 
 int tcp_cksum(struct sr_instance* sr, uint8_t* packet, unsigned int len){
   

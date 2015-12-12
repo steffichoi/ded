@@ -94,7 +94,7 @@ void sr_handlepacket(struct sr_instance* sr,
     }else if(package_type == ethertype_ip){
       /* IP protocol */
       if (sr->nat) {
-        sr_natHandle(sr, ether_packet, len, iface);
+        sr_natHandle(sr, ether_packet, len, iface, interface);
       }
       else {
         sr_handleIPpacket(sr, ether_packet,len, interface, iface);
@@ -344,9 +344,10 @@ void sr_natHandle(struct sr_instance* sr,
       fprintf(stderr,"Bad checksum\n");
     } 
     else if (strcmp(rec_iface->name, "eth1") == 0){ /*INTERNAL*/
+      sr_nat_mapping_type type;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
       if (tgt_iface != NULL || rt == NULL){
-        sr_handleIPPacket(sr, packet, len, iface, rec_iface);
+        sr_handleIPpacket(sr, packet, len, iface, rec_iface);
       } 
       else if (ip_header->ip_ttl <= 1){
         fprintf(stderr,"Packet died\n");
@@ -367,15 +368,15 @@ void sr_natHandle(struct sr_instance* sr,
         }
         else if (icmp_header->icmp_type == 8 && icmp_header->icmp_code == 0){
           fprintf(stderr,"\t intfwd icmp id %d\n", icmp_header->icmp_id);
-          map = sr_nat_lookup_internal(&(sr->nat),
-                                      ip_header->ip_src,
+          map = sr_nat_lookup_internal(sr->nat,
+                                      ntohl(ip_header->ip_src),
                                       icmp_header->icmp_id,
-                                      &nat_mapping_icmp);
+                                      type);
           if (map == NULL){
-              map = sr_nat_insert_mapping(&(sr->nat),
-                                      ip_header->ip_src,
+              map = sr_nat_insert_mapping(sr->nat,
+                                      ntohl(ipHeader->ip_src),
                                       icmp_header->icmp_id,
-                                      &nat_mapping_icmp);
+                                      type);
               map->ip_ext = ip_header->ip_dst;
           }
           fprintf(stderr,"\t intfwd icmp ext id %d\n", map->aux_ext);
@@ -391,6 +392,7 @@ void sr_natHandle(struct sr_instance* sr,
       }
     } 
     else if (strcmp(rec_iface->name, "eth2") == 0){ /*EXTERNAL*/
+      sr_nat_mapping_type type;
       if (ip_header->ip_ttl <= 1){
         fprintf(stderr,"Packet died\n");
         sr_sendICMP(sr, packet, iface, 11,0);
@@ -413,9 +415,9 @@ void sr_natHandle(struct sr_instance* sr,
         }
         else if (icmp_header->icmp_type == 0 && icmp_header->icmp_code == 0){
           fprintf(stderr,"\t extfwd icmp id %d\n", icmp_header->icmp_id);
-          map = sr_nat_lookup_external(&(sr->nat),
+          map = sr_nat_lookup_external(sr->nat,
                                        icmp_header->icmp_id,
-                                       &nat_mapping_icmp);
+                                       type);
           if (map != NULL){
             fprintf(stderr,"\t extfwd found mapping\n");
             rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);

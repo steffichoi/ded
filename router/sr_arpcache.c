@@ -358,8 +358,10 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     else {  
       if (sr->nat && ethertype((uint8_t *)packet)==ethertype_ip){
         packet = req->packets;
-        if (sr_handle_nat(sr,(uint8_t *)packet,packet->len,packet->iface) == 1) {
-          return;
+        if (packet) {
+          if (sr_handle_nat(sr,(uint8_t *)packet,packet->len,packet->iface) == 1) {
+            return;
+          }
         }
       }
     }

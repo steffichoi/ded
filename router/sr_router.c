@@ -132,7 +132,8 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
         fprintf(stderr,"Bad cksum %d != %d\n", incm_cksum, calc_cksum);
       } 
       else if (type == 8 && code == 0) {
-        sr_sendICMP(sr, packet, interface, 0, 0);
+        /*sr_sendICMP(sr, packet, interface, 0, 0);*/
+        sr_sendIP(sr, packet, len, rt, interface);
       }
       else if (sr->nat) {
         printf("handling nat\n");
@@ -172,7 +173,6 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
     else {
       sr_sendICMP(sr, packet, interface, 3, 0);
     }
-    
   }
 }
 
@@ -222,7 +222,6 @@ void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int le
       pthread_mutex_unlock(&(sr->cache.lock));
     }
 }
-
 
 void sr_sendIP(struct sr_instance *sr, uint8_t *packet, unsigned int len, struct sr_rt *rt, char *interface) {
   struct sr_if* iface = sr_get_interface(sr, rt->interface);

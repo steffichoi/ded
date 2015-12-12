@@ -305,6 +305,15 @@ void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
   free(del_map);
 }
 
+void sr_nat_ext_ip(struct sr_nat *nat,struct sr_instance* sr)
+{
+    pthread_mutex_lock(&(nat->lock));
+    nat->ip_ext = sr_get_interface(sr,"eth2")->ip;
+/*    Debug("Ext IP set to ");
+    print_addr_ip_int(nat->ip_ext);*/
+    pthread_mutex_unlock(&(nat->lock));
+}
+
 /* tcp functions! */
 void sr_nat_delete_connection(struct sr_nat_mapping *map, struct sr_nat_connection *del_conn,
   struct sr_nat_connection *prev){

@@ -117,11 +117,6 @@ void sr_nat_delete_mapping(struct sr_nat *nat, struct sr_nat_mapping *del_map,
 
 void sr_nat_ext_ip(struct sr_nat*,struct sr_instance*);
 
-/* tcp connection functions */
-void sr_nat_add_conn(struct sr_nat *nat, struct sr_nat_mapping *copy, 
-  uint32_t ip_src, uint16_t port_src, uint32_t ip_dst, uint16_t port_dst, 
-  uint16_t seq_no, int established, uint8_t *packet, unsigned int len);
-
 void sr_nat_delete_connection(struct sr_nat_mapping *map, 
   struct sr_nat_connection *del_conn, struct sr_nat_connection *prev);
 

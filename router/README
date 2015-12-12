@@ -1,20 +1,45 @@
 OVERVIEW:
 ----------------------------------
-We decided to structure our code so that the function -- sr_handlepacket() -- in sr_router.c would process packets the router receives by determining the type of protocol of the packet and calling their respective packet handler helper functions.
+We decided to structure our code so that all the nat functionality is in sr_nat.c.  Other than that, the application of the nat functionslity is implemented within one function in sr_router.c.
 
-In the file sr_router.c, the functions -- sr_handleIPpacket() and sr_handleARPpacket() -- were implemented and called in sr_handlepacket().  A few other helper functions with more basic functionalities were implemented in other files and are called in sr_handleIPpacket() and sr_handleARPpacket() to help make them less convoluted.
+Additional functions other than what was provided in the starter code:
+----sr_nat.c------
+sr_nat_insert_mapping_unsol:
+	inserts the unsolicited packet associated with the connection into the mapping
+	this function is called in sr_nantHandle(), when processing packets received on the external interface, and no mapping already exists for the intended destination
+sr_nat_delete_mapping:
+	delets the mapping
+	this funciton is called in sr_nat_timeout(), to clean up the ICMP/TCP mappings that have become stale
+sr_nat_ext_ip:
+	set the external ip address to the ip of interface eth2	
+	this funciton is called in sr_vns_comm.c when nat mode is enabled
+sr_nat_delete_connection:
+	closes the connection
+	this function is called in sr_nat_timeout() to delelte a connection whenever an ICMP/TCP establish/TCP transitory timeout has occured
+	it is also called in sr_nat_handle_external_conn() and sr_nat_handle_internal_conn() to close connections
+sr_nat_handle_external_conn:
+	handles all of the connections on the external interface and keeps track of the conneciton states
+sr_nat_handle_internal_conn:
+	handles all of the connections on the internal interface ane keeps track of the conection states
 
-In the file sr_arpcache.c, the helper function -- handle_arpreq() -- is implemented and called in sr_handleIPpacket() when a request is cached.  It is called again in sr_arpcache_sweepreqs() which is called every second, to go through all the requests on the ARP cache and handle_arpreq() is called on each request on the cache.  This function sends an ARP request out and keeps track of how many times the request has been sent.  If the request has been sent 5 times withoug a response, an ICMP packet type 3 code 1 will be sent back to the source.
-
-In the file sr_rt.c, the function -- sr_find_routing_entry_int() -- was implemented to find the routing entry with the longest prefix.  This function is then caled in both sr_handleIPpacket() and ar_handleARPpacket to determine the interface the packet currently being handled should be sent out from.  
-
-In the file sr_if.c, the function -- sr_get_interface_from_ip() -- was implemented to find the interface entry of the provided ip address.  This function is also called in sr_handleIPpacket() and sr_handleARPpacket() to find the ip->mac mapping of the given ip address and return its sr_if struct if it exists. 
-
-In the file sr_utils.c, the function -- createICMP() -- was implemented to create ICMP packets, depending on the type and code entered as parameters to the function.  This function is caled in sr_handleIPpacket() when the IP TTL dies with type 11 code 0, when no route to the destination IP is found with type 3 code 0 and if the received packet is IP TCP/UDP with type 3 code 3.  It is also called in s_arpcache.c in handle_arpreq() with type 3 code 1, when the request being processed has been sent out 5 times wthout a reply.  
+----sr_router.c-------
+sr_natHandle:
+	determines if the packet was received on an internal or external interface and translates the packet accordingly
+	in both cases, it looks for a mapping and if it does not exist, a new map is inserted using sr_nat_insert_mapping_unsol()
+	if a map does exist then the packet is translated and forwarded
+	this funciton is called in sr_handlepacket() when an ip packet is received and nat ode is enabled
+tcp_cksum:
+	like cksum, but for tcp
 
 
 DESIGN DECISIONS:
 ----------------------------------
-In sr_router.c, we decided to try to keep things fairly modular, though the nature of the assignment often pushed us towards the quickest solution.  Using a method to create our ICMP packets allowed for quick adjustments in the case of mistakes.  Streaming incoming packets into separate methods allowed us to work in parallel on the project.  The structure in sr_arpcache.c follows the structure suggested in the comments and largely implemented in the starter code.  For the other files, the additions were made to reduce code duplication and to make singular fail points for easier modification.  
+We decided to handle the internal and external connections withtwo different functions to keep the code more organized, howeever in sr_natHandle, we decided that it would be more effecient to handle internal and external packets in one function so that when nat mode is enabled, only one function is called.
+Other than that, the additional functions in sr_nat.c helps with the clarity and organization of the code.
 
 We also decided to use a github repository for ease of transferring files and for multiple access, and to use Trello for issue tracking.  
+
+
+
+
+

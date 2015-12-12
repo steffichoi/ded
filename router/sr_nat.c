@@ -74,54 +74,52 @@ int sr_nat_destroy(struct sr_nat *nat) {  /* Destroys the nat (free memory) */
 
 void *sr_nat_timeout(void *sr_ptr) {  /* Periodic Timout handling */
   struct sr_instance *sr = sr_ptr;
-  struct sr_nat *nat = (struct sr_nat *)sr->nat;
+  struct sr_nat *nat = sr->nat;
   while (1) {
     sleep(1.0);
     pthread_mutex_lock(&(nat->lock));
-
     time_t curtime = time(NULL);
-
+    /*Debug("NAT Tick Tock\n");*/
     /* handle periodic tasks here */
     struct sr_nat_mapping *curr_map = nat->mappings;
-    struct sr_nat_mapping *prev_map =  NULL;
+    /*Debug("Cur Mapping %d\n",curr_map);*/
+    struct sr_nat_mapping *prev_map = NULL;
     for(;curr_map != NULL; curr_map = curr_map->next){
-      
-      int time_passed = difftime(curtime,curr_map->time_wait);
-      if (curr_map->type==nat_mapping_icmp && time_passed>=nat->icmp_to){
-        /* Deleting ICMP mapping */
+      int time_passed = difftime(curtime,curr_map->last_updated);
+/*      Debug("Mapping time passed %d\n",time_passed);*/
+      if (curr_map->type == nat_mapping_icmp && time_passed>=nat->icmp_timeout){
+        Debug("Deleting ICMP mapping\n");
         sr_nat_delete_mapping(nat,curr_map,prev_map);
       }
       else if (curr_map->type == nat_mapping_tcp){
-        if (!curr_map->conns){
-          /* Cleanup of TCP mapping */
+        if (curr_map->conns == NULL){
+          Debug("Cleanup of TCP mapping\n");
           sr_nat_delete_mapping(nat,curr_map,prev_map);
         }else{
           struct sr_nat_connection *curr_conn = curr_map->conns;
           struct sr_nat_connection *prev_conn = NULL;
           for(;curr_conn!=NULL;curr_conn=curr_conn->next){
             int conn_time_passed = difftime(curtime,curr_conn->time_wait);
-            if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
-              /*Deleting established TCP connection*/
+            if(conn_time_passed>=nat->tcp_est_timeout && curr_conn->state == nat_conn_est){
+              Debug("Deleting established TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
-            }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && curr_conn->state != nat_conn_unest){
-              /* Deleting transitory TCP connection */
+            }else if (time_passed>=nat->tcp_trans_timeout && curr_conn->state != nat_conn_est && cur_conn->state != nat_conn_unest){
+              Debug("Deleting transitory TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){
-              /* Deleting unsolicited SYN TCP connection */
+              Debug("Deleting unsolicited SYN TCP connection\n");
               /*uint8_t *packet = curr_conn->packet;*/
-              sr_sendICMP(sr, curr_conn->packet, "eth2", 3, 3);
+              send_icmp_pac(sr,curr_conn->packet,"eth2",3,3);
               free(curr_conn->packet);
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }
-            else{
+            else
               prev_conn = curr_conn;
-            }
           }
         }
       }
-      else {
+      else
         prev_map = curr_map;
-      }
     }
     pthread_mutex_unlock(&(nat->lock));
   }

@@ -143,7 +143,7 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
       struct sr_rt* rt;
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
       if (rt){
-          sendIP(sr,packet,len,rt);
+          sr_sendIP(sr,packet,len,rt, interface);
       } else {
           sr_sendICMP(sr, packet, interface, 3, 0);
       }

@@ -374,7 +374,7 @@ void sr_natHandle(struct sr_instance* sr,
                                       type);
           if (map == NULL){
               map = sr_nat_insert_mapping(sr->nat,
-                                      ntohl(ipHeader->ip_src),
+                                      ntohl(ip_header->ip_src),
                                       icmp_header->icmp_id,
                                       type);
               map->ip_ext = ip_header->ip_dst;

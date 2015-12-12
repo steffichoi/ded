@@ -329,6 +329,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
   }
   print_hdr_ip(packet+ sizeof(struct sr_ethernet_hdr));
   sr_ip_hdr_t *ipHeader = (sr_ip_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr));
+  struct sr_rt* rt;
 
   struct sr_nat_mapping *mapping;
   if(strcmp(iface,"eth1")==0){
@@ -364,11 +365,12 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
     print_addr_ip_int(mapping->ip_int);
     ipHeader->ip_src=mapping->ip_ext;
 
+    rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
     if (ipHeader->ip_p == ip_protocol_icmp){
       icmpHeader->icmp_id=htons(mapping->aux_ext);
       icmpHeader->icmp_sum=0;
       icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
-      sr_send_packet(sr, packet, len, iface);
+      sr_sendIP(sr, packet, len, rt, iface);
     }
     else if (ipHeader->ip_p == ip_protocol_tcp){
       tcpHeader->source=ntohs(mapping->aux_ext);
@@ -379,7 +381,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
         return 1;
       }
       else {
-        sr_send_packet(sr, packet, len, iface);
+        sr_sendIP(sr, packet, len, rt, iface);
       }
     }
   }
@@ -415,10 +417,11 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
           return 1;
         }
         else {
-          sr_send_packet(sr, packet, len, iface);
+          rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
+          sr_sendIP(sr, packet, len, rt, iface);
         }
       }else{
-        Debug("No mapping available, welp\n");
+        Debug("No mapping available\n");
         free(mapping);
         return 1;
       }
@@ -426,12 +429,13 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
     else{
       Debug("Mapping found, applying map\n");
       ipHeader->ip_dst=mapping->ip_int;
+      rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ipHeader->ip_dst);
 
       if (ipHeader->ip_p == ip_protocol_icmp){
         icmpHeader->icmp_id=ntohs(mapping->aux_int);
         icmpHeader->icmp_sum=0;
         icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
-        sr_send_packet(sr, packet, len, iface);
+        sr_sendIP(sr, packet, len, rt, iface);
       }
       else if (ipHeader->ip_p == ip_protocol_tcp){
         tcpHeader->destination=ntohs(mapping->aux_int);
@@ -441,7 +445,7 @@ int sr_handle_nat(struct sr_instance* sr /* borrowed */,
           Debug("Unsolicited syn, don't send\n");
           return 1;
         }
-        sr_send_packet(sr, packet, len, iface);
+        sr_send_packet(sr, packet, len, rt, iface);
       }
     }           
   }

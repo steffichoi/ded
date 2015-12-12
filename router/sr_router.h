@@ -72,10 +72,7 @@ void sr_init(struct sr_instance*);
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handleIPpacket(struct sr_instance* , uint8_t*, unsigned int, const char *, struct sr_if *);
 void sr_handleARPpacket(struct sr_instance *, uint8_t* , unsigned int, struct sr_if*, const char*);
-void sr_natHandle(struct sr_instance* sr, 
-        uint8_t* packet,
-        unsigned int len, 
-        struct sr_if * rec_iface);
+void sr_natHandle(struct sr_instance*, uint8_t*, unsigned int, struct sr_if *, const char *);
 /* sending packets */
 void sr_sendIP(struct sr_instance *, uint8_t *, unsigned int , struct sr_rt *, const char *);
 void sr_sendICMP(struct sr_instance*, uint8_t*, const char*, uint8_t, uint8_t);

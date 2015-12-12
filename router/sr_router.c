@@ -346,7 +346,7 @@ void sr_natHandle(struct sr_instance* sr,
     else if (strcmp(rec_iface->name, "eth1") == 0){ /*INTERNAL*/
       rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
       if (tgt_iface != NULL || rt == NULL){
-        handleIPPacket(sr, packet, len, iface, rec_iface);
+        sr_handleIPPacket(sr, packet, len, iface, rec_iface);
       } 
       else if (ip_header->ip_ttl <= 1){
         fprintf(stderr,"Packet died\n");
@@ -357,7 +357,7 @@ void sr_natHandle(struct sr_instance* sr,
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         fprintf(stderr,"FWD ICMP from int\n");
-        sr_icmp_echo_hdr_t * icmp_header = (sr_icmp_t8_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+        sr_icmp_echo_hdr_t * icmp_header = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         incm_cksum = icmp_header->icmp_sum;
         icmp_header->icmp_sum = 0;
         calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
@@ -370,12 +370,12 @@ void sr_natHandle(struct sr_instance* sr,
           map = sr_nat_lookup_internal(&(sr->nat),
                                       ip_header->ip_src,
                                       icmp_header->icmp_id,
-                                      nat_mapping_icmp);
+                                      &nat_mapping_icmp);
           if (map == NULL){
               map = sr_nat_insert_mapping(&(sr->nat),
                                       ip_header->ip_src,
                                       icmp_header->icmp_id,
-                                      nat_mapping_icmp);
+                                      &nat_mapping_icmp);
               map->ip_ext = ip_header->ip_dst;
           }
           fprintf(stderr,"\t intfwd icmp ext id %d\n", map->aux_ext);
@@ -403,7 +403,7 @@ void sr_natHandle(struct sr_instance* sr,
       } 
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         fprintf(stderr,"FWD ICMP from ext\n");
-        sr_icmp_echo_hdr_t *icmp_header = (sr_icmp_t8_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+        sr_icmp_echo_hdr_t *icmp_header = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         incm_cksum = icmp_header->icmp_sum;
         icmp_header->icmp_sum = 0;
         calc_cksum = cksum((uint8_t*)icmp_header,len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
@@ -415,7 +415,7 @@ void sr_natHandle(struct sr_instance* sr,
           fprintf(stderr,"\t extfwd icmp id %d\n", icmp_header->icmp_id);
           map = sr_nat_lookup_external(&(sr->nat),
                                        icmp_header->icmp_id,
-                                       nat_mapping_icmp);
+                                       &nat_mapping_icmp);
           if (map != NULL){
             fprintf(stderr,"\t extfwd found mapping\n");
             rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);

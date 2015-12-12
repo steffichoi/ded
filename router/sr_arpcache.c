@@ -352,7 +352,6 @@ void handle_arpreq(struct sr_instance* sr /* borrowed */,
     assert(if_i);
 
     sr_ethernet_hdr_t *e_hdr = (sr_ethernet_hdr_t *)(packet);
-
     sr_arp_hdr_t* a_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
     sr_arp_hdr_t* a_ret = (sr_arp_hdr_t*)(ret_pac + sizeof(sr_ethernet_hdr_t));
 

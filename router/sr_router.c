@@ -191,13 +191,13 @@ void sr_handleIPpacket(struct sr_instance* sr, uint8_t* packet,unsigned int len,
 
 void sr_handleARPpacket(struct sr_instance *sr, uint8_t* packet, unsigned int len, struct sr_if * iface, const char * interface) {
   sr_arp_hdr_t* a_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-  sr_ethernet_hdr_t *e_hdr = (sr_ethernet_hdr_t *)(packet);    
-  sr_ethernet_hdr_t *e_ret = (sr_ethernet_hdr_t *)(ret_pac); 
+  sr_ethernet_hdr_t *e_hdr = (sr_ethernet_hdr_t *)(packet);
 
   uint8_t *ret_pac = malloc(len);
   memcpy(ret_pac,packet,len);
+  sr_ethernet_hdr_t *e_ret = (sr_ethernet_hdr_t *)(ret_pac); 
   
-  struct sr_if* if_i = sr_get_interface(sr,iface);
+  struct sr_if* if_i = sr_get_interface(sr,interface);
   assert(if_i);
   int addr_i;
   for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){

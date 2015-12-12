@@ -360,7 +360,7 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==6) { /*TCP*/
         fprintf(stderr,"FWD TCP from int\n");
         type = nat_mapping_tcp;
-        tcpHeader = (sr_tcp_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+        tcpHeader = (sr_tcp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         aux_int=ntohs(tcpHeader->source);
         map = sr_nat_lookup_internal(sr->nat,ip_header->ip_src,aux_int,type);
         if (map == NULL) {
@@ -389,7 +389,7 @@ void sr_natHandle(struct sr_instance* sr,
           fprintf(stderr,"\t intfwd icmp id %d\n", icmpHeader->icmp_id);
           type = nat_mapping_icmp;
           
-          icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+          icmpHeader = (sr_icmp_echo_hdr_t *)(packet + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
           aux_int = ntohs(icmpHeader->icmp_id);
           map = sr_nat_lookup_internal(sr->nat,ntohl(ip_header->ip_src),aux_int,type);
           if (map == NULL){
@@ -424,12 +424,12 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==6) { /*TCP*/
         fprintf(stderr,"FWD TCP from ext\n");
         type = nat_mapping_tcp;
-        tcpHeader = (sr_tcp_hdr_t *) (packet+sizeof(struct sr_ethernet_hdr_t)+sizeof(struct sr_ip_hdr_t))
+        tcpHeader = (sr_tcp_hdr_t *) (packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
         map = sr_nat_lookup_external(sr->nat,ntohs(tcpHeader->destination),type);
 
         if (map == NULL) {
-          mapping = sr_nat_insert_mapping_unsol(sr->nat,ntohs(pac_tcp->tcp_dst_p),type);
-          if (sr_nat_handle_external_conn(sr->nat,mapping,packet,len) ==1){
+          map = sr_nat_insert_mapping_unsol(sr->nat,ntohs(tcpHeader->destination),type);
+          if (sr_nat_handle_external_conn(sr->nat,map,packet,len) ==1){
             Debug("Unsolicited syn, don't send\n");
             return;
           }

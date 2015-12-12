@@ -87,26 +87,10 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
-    struct sr_arpreq *request = sr->cache.requests;    
-    while (request) {
-        struct sr_arpreq *next_bku = request->next;
+    struct sr_arpreq *req;
 
-        if (difftime(time(NULL),(int)(request->sent)) > 1.0){
-          if(request->times_sent <= 5){
-                request->times_sent ++;
-                send_request(sr,request->ip);
-                request->sent = time(NULL);
-            }
-            else{
-                struct sr_packet* pac = request->packets;
-
-                for(;pac != NULL; pac = pac->next){
-                    sr_sendICMP(sr, pac->buf, pac->iface, 3, 1); 
-                }
-                sr_arpreq_destroy(&( sr->cache), request);
-            }
-        }
-        request = next_bku;
+    for (req = sr->cache.requests; req != NULL; req = req->next) {
+        sr_handle_arpreq(sr,req);
     }
 }
 
@@ -336,59 +320,48 @@ void *sr_arpcache_timeout(void *sr_ptr) {
 }
 
 /* Helper function to handle ARP requests */
-void handle_arpreq(struct sr_instance* sr /* borrowed */,
-                         uint8_t* packet /* borrowed */ ,
-                         uint8_t* ret_pac,
-                         unsigned int len,
-                         const char* iface /* borrowed */)
-{
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
+  time_t curtime = time(NULL);
+  struct sr_packet *packet;
+  if (req->times_sent >= 5) {
+    for (packet = req->packets; packet != NULL; packet = packet->next) {
+      sr_send_icmp(sr, packet->buf, packet->len, 3, 1, 0);
+    }
+    sr_arpreq_destroy(&sr->cache, req);
+  } 
+  else if (req->sent == 0 || difftime(curtime, req->sent) >= 1.0){
+    uint8_t *out = calloc(1,sizeof(sr_ethernet_hdr_t)+sizeof(sr_arp_hdr_t));
+    sr_ethernet_hdr_t *ethHeader = (sr_ethernet_hdr_t *)out;
+    sr_arp_hdr_t *arpHeader = (sr_arp_hdr_t *)(out+sizeof(sr_ethernet_hdr_t));
     
-    /* REQUIRES */
-    assert(sr);
-    assert(packet);
-    assert(ret_pac);
-    assert(iface);
+    /* set ARPHeader to request */
+    arpHeader->ar_hrd = htons(0x0001); 
+    arpHeader->ar_pro = htons(0x800); 
+    arpHeader->ar_op = htons(0x0001);
+    arpHeader->ar_hln = 0x0006; 
+    arpHeader->ar_pln = 0x0004;
+    memset(arpHeader->ar_tha, 255, 6);
+    arpHeader->ar_tip = req->ip;/*ENDIANESS*/
+    /* set Ethernet Header */
+    ethHeader->ether_type = htons(0x0806);
+    memset(ethHeader->ether_dhost, 255,6);
 
-    struct sr_if* if_i = sr_get_interface(sr,iface);
-    assert(if_i);
-
-    sr_ethernet_hdr_t *e_hdr = (sr_ethernet_hdr_t *)(packet);
-    sr_arp_hdr_t* a_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-    sr_arp_hdr_t* a_ret = (sr_arp_hdr_t*)(ret_pac + sizeof(sr_ethernet_hdr_t));
-
-
-    bool flag = true;
-    int addr_i;
-    for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
-      if (e_hdr->ether_dhost[addr_i] != 0xFF && 
-        e_hdr->ether_dhost[addr_i] != if_i->addr[addr_i]){
-        flag=false;
-        break;
-      }
+    /* get outgoing interface and send the request */
+    struct sr_if* if_walker;
+    if_walker = sr_get_interface(sr, req->packets->iface);
+    if (if_walker){
+      arpHeader->ar_sip = if_walker->ip;
+      memcpy(arpHeader->ar_sha, if_walker->addr, 6);
+      memcpy(ethHeader->ether_shost, if_walker->addr, 6);
+      sr_send_packet (sr 
+                      ,out
+                      ,sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t)
+                      ,if_walker->name);
     }
-    if (flag){
-
-          Debug("We have a match!\n");
-          /*Sends an ARP reply*/
-          int addr_i;
-          for (addr_i=0;addr_i<ETHER_ADDR_LEN;addr_i++){
-            a_ret->ar_tha[addr_i] = a_hdr->ar_sha[addr_i]; 
-            a_ret->ar_sha[addr_i] = if_i->addr[addr_i];
-          }
-
-          a_ret->ar_sip = if_i->ip;
-          a_ret->ar_tip = a_hdr->ar_sip;
-          a_ret->ar_op*=2;
-
-          sr_arpcache_insert(&(sr->cache),a_hdr->ar_sha,a_hdr->ar_sip);
-          sr_send_packet(sr,ret_pac,len,iface);    
-          free(ret_pac);  
-          /*free(req);*/
-    }
-    else{
-      Debug("Not for me, re-route!\n");
-      reroute_packet(sr,packet,len,iface);
-    }
+    req->sent = curtime;
+    req->times_sent++;
+    free(out);
+  }
 }
 
 void send_request(struct sr_instance* sr, uint32_t ip) {

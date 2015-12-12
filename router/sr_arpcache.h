@@ -148,7 +148,7 @@ int   sr_arpcache_destroy(struct sr_arpcache *cache);
 void *sr_arpcache_timeout(void *cache_ptr);
 
 /* Helper function to handle ARP requests */
-void handle_arpreq(struct sr_instance*, uint8_t* , uint8_t*, unsigned int, const char*);
+void handle_arpreq(struct sr_instance*, struct sr_arpreq *);
 void send_request(struct sr_instance* sr, uint32_t ip);
 
 #endif

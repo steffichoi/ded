@@ -108,7 +108,7 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){
               Debug("Deleting unsolicited SYN TCP connection\n");
               /*uint8_t *packet = curr_conn->packet;*/
-              sr_sendICMP(sr, curr_conn->packet, "eth2", 3, 3);
+              /*sr_sendICMP(sr, curr_conn->packet, "eth2", 3, 3);*/
               free(curr_conn->packet);
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }

@@ -253,7 +253,7 @@ struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
   mapping->ip_ext = nat->ip_ext;
   mapping->aux_int = aux_int;
   mapping->aux_ext = aux_ext;
-  mapping->last_updated = time(NULL);
+  mapping->time_wait = time(NULL);
   mapping->next=NULL;
 
   mapping->conns = NULL; 

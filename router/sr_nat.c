@@ -78,11 +78,10 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
     
     /* pthread_mutex_lock(&(nat->lock)); */
     time_t curtime = time(NULL);
-    /*Debug("NAT Tick Tock\n");*/
     /* handle periodic tasks here */
     struct sr_nat_mapping *curr_map = nat->mappings;
-    /*Debug("Cur Mapping %d\n",curr_map);*/
     struct sr_nat_mapping *prev_map = NULL;
+    
     for(;curr_map != NULL; curr_map = curr_map->next){
       int time_passed = difftime(curtime,curr_map->time_wait);
 /*      Debug("Mapping time passed %d\n",time_passed);*/
@@ -100,13 +99,10 @@ void *sr_nat_timeout(void *nat_ptr) {  /* Periodic Timout handling */
           for(;curr_conn!=NULL;curr_conn=curr_conn->next){
             int conn_time_passed = difftime(curtime,curr_conn->time_wait);
             if(conn_time_passed>=nat->tcp_establish_to && curr_conn->state == nat_conn_est){
-              Debug("Deleting established TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if (time_passed>=nat->tcp_transitory_to && curr_conn->state != nat_conn_est && curr_conn->state != nat_conn_unest){
-              Debug("Deleting transitory TCP connection\n");
               sr_nat_delete_connection(curr_map,curr_conn,prev_conn);
             }else if(conn_time_passed>=6 && curr_conn->packet != NULL){
-              Debug("Deleting unsolicited SYN TCP connection\n");
               /*uint8_t *packet = curr_conn->packet;*/
               /*sr_sendICMP(sr, curr_conn->packet, "eth2", 3, 3);*/
               free(curr_conn->packet);
@@ -132,8 +128,6 @@ struct sr_nat_mapping *sr_nat_lookup_external(struct sr_nat *nat,
     uint16_t aux_ext, sr_nat_mapping_type type ) {
 
   pthread_mutex_lock(&(nat->lock));
-
-  Debug("External lookup %d\n",aux_ext);
    /* handle lookup here, malloc and assign to copy. */
   struct sr_nat_mapping *search_mapping = nat->mappings;
   for(;search_mapping != NULL; search_mapping = search_mapping->next){
@@ -251,8 +245,6 @@ struct sr_nat_mapping *sr_nat_insert_mapping_unsol(struct sr_nat *nat,
   uint16_t aux_ext, sr_nat_mapping_type type ) {
 
   pthread_mutex_lock(&(nat->lock));
-
-  Debug("Inserting unsol packet\n");
   uint32_t ip_int = htonl(0);
   uint16_t aux_int= htons(1);
   /* handle insert here, create a mapping, and then return a copy of it */
@@ -408,9 +400,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
   }
 
   /*Do state operations on the connection*/
-  switch (conn->state)
-  {
-
+  switch (conn->state) {
     /*Do nothing here*/
     case nat_conn_unest:
       if (conn->last_state)
@@ -499,6 +489,7 @@ int sr_nat_handle_external_conn(struct sr_nat *nat,
   pthread_mutex_unlock(&(nat->lock));
   return 0;
 }
+
 int sr_nat_handle_internal_conn(struct sr_nat *nat,
   struct sr_nat_mapping *copy,  
   uint8_t* packet /* borrowed */,

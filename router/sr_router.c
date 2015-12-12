@@ -377,7 +377,7 @@ void sr_natHandle(struct sr_instance* sr,
 
           rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
           if (ip_header->ip_p == ip_protocol_icmp){
-            icmpHeader->icmp_id=htons(map->aux_ext);
+            icmpHeader->icmp_id=map->aux_ext;
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
           }
@@ -434,7 +434,7 @@ void sr_natHandle(struct sr_instance* sr,
           if (map){
             rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);
             ip_header->ip_dst=map->ip_int;
-            icmpHeader->icmp_id=ntohs(map->aux_int);
+            icmpHeader->icmp_id=map->aux_int;
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
 

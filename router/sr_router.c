@@ -337,7 +337,7 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==6) { /*TCP*/
         type = nat_mapping_tcp;
         tcpHeader = (sr_tcp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        aux_int = tcpHeader->source;
+        aux_int = ntohs(tcpHeader->source);
         map = sr_nat_lookup_internal(sr->nat,ip_header->ip_src,aux_int,type);
         if (map == NULL) {
           map = sr_nat_insert_mapping(sr->nat,ip_header->ip_src,aux_int,type);
@@ -377,7 +377,7 @@ void sr_natHandle(struct sr_instance* sr,
 
           rt = (struct sr_rt*)sr_find_routing_entry_int(sr, ip_header->ip_dst);
           if (ip_header->ip_p == ip_protocol_icmp){
-            icmpHeader->icmp_id=map->aux_ext;
+            icmpHeader->icmp_id=htons(map->aux_ext);
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
           }
@@ -418,7 +418,7 @@ void sr_natHandle(struct sr_instance* sr,
       else if(ip_header->ip_p==1 ) { /*ICMP*/
         type = nat_mapping_icmp;
         icmpHeader = (sr_icmp_echo_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-        aux_ext = icmpHeader->icmp_id;
+        aux_ext = ntohs(icmpHeader->icmp_id);
         
         incm_cksum = icmpHeader->icmp_sum;
         icmpHeader->icmp_sum = 0;
@@ -434,7 +434,7 @@ void sr_natHandle(struct sr_instance* sr,
           if (map){
             rt = (struct sr_rt*)sr_find_routing_entry_int(sr, map->ip_int);
             ip_header->ip_dst=map->ip_int;
-            icmpHeader->icmp_id=map->aux_int;
+            icmpHeader->icmp_id=ntohs(map->aux_int);
             icmpHeader->icmp_sum=0;
             icmpHeader->icmp_sum = cksum(icmpHeader,sizeof(sr_icmp_echo_hdr_t));
 
